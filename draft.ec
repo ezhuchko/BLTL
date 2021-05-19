@@ -233,7 +233,15 @@ op digestQ : pkey -> (tag * (message_macced list)) list -> (tag * data) list.
 op proofQ : pkey -> (tag * (message_macced list)) list -> message_macced -> Proof.
 op verifyQ : pkey -> (tag * data) list -> Proof -> (tag * message list) -> bool.
 
+print List.
+abbrev (\inl) ['a] (z : 'a) (s : 'a list) : bool = mem s z.
+
 op convertQ : (tag * message_macced) list -> (tag * (message_macced list)) list.
+axiom convertQ_prop1 : forall xs t m,  (t,m) \inl xs => exists (x : (tag * (message_macced list))), x \inl (convertQ xs) /\ x.`1 = t /\ m \inl x.`2.
+
+op getByTag : tag -> (tag * (message_macced list)) list -> (message_macced list).
+
+
 
 (* rq \in ml *)
 (* axiom accumCorrect : forall (rq : tag * message list) pk (rl : (tag * data) list), pk \in accKey => rq \in rl => verifyQ pk (digestQ pk rl) (proofQ pk rl rq) rq = true. 
