@@ -241,7 +241,7 @@ axiom convertQ_prop1 : forall xs t m,  (t,m) \inl xs => exists (x : (tag * (mess
 
 op getByTag : tag -> (tag * (message_macced list)) list -> (message_macced list).
 
-
+axiom convertQ_prop2 : forall (xs : (tag * message_macced) list) t m (x : message_macced list), (t,m) \inl xs => getByTag t (convertQ xs) = x.
 
 (* rq \in ml *)
 (* axiom accumCorrect : forall (rq : tag * message list) pk (rl : (tag * data) list), pk \in accKey => rq \in rl => verifyQ pk (digestQ pk rl) (proofQ pk rl rq) rq = true. 
