@@ -243,6 +243,10 @@ op getByTag : tag -> (tag * (message_macced list)) list -> (message_macced list)
 
 axiom convertQ_prop2 : forall (xs : (tag * message_macced) list) t m (x : message_macced list), (t,m) \inl xs => getByTag t (convertQ xs) = x.
 
+axiom convertQ_prop1' : forall xs t m,  (t,m) \inl xs => m \inl getByTag t (convertQ xs).
+
+
+
 (* rq \in ml *)
 (* axiom accumCorrect : forall (rq : tag * message list) pk (rl : (tag * data) list), pk \in accKey => rq \in rl => verifyQ pk (digestQ pk rl) (proofQ pk rl rq) rq = true. 
 *)
@@ -272,7 +276,7 @@ module Q (A : AdvQ) = {
     (* excludes the event which might happen with negligible probability *)
     r' <- filter (fun (tm : tag * message_macced) => tm.`1 <> t) r; 
     joined_r <- r ++ [(t, m)];  
-    final_r <- convertQ joined_r;
+    final_r <- convertQ joined_r; (* final_r = (t',S_t') .... (t, [m]) *)
     digested_r <- digestQ pk final_r; 
     
     (* send request to Ts *)
