@@ -71,6 +71,7 @@ module EndCorrect = {
 
 print Distr.
 
+
 lemma EndOracleCorrect &m ml: 
   Pr[ EndCorrect.main(ml) @ &m : res ] = 1%r.  
 proof. byphoare => //. proc. inline*. wp. 
@@ -113,40 +114,32 @@ module P = {
     }
       return t;
    }
-
   proc get(t : Time) : digest option = {
     return m.[t];
   }
-
 }.
 
 type tag, data, cert.
 type message_macced = message * mac.
-type requestT = (tag * data) list.
-
 
 print List.
 abbrev (\inl) ['a] (z : 'a) (s : 'a list) : bool = mem s z.
 
 (* Tag-commitment scheme *)
 
-op digestTs : requestT -> digest.
-op certTs : requestT -> (tag * cert) list.
+op digestTs : (tag * data) list -> digest.
+op certTs : (tag * data) list -> (tag * cert) list.
 op verifyTs : digest -> cert -> (tag * data) -> bool.
+
+(* axiom : if multiple d's exist for same t, keep first one and ignore the rest *)
 
 op certByTag : tag -> (tag * cert) list -> cert.
 op dataByTag : tag -> (tag * data) list -> data.
 
-(*
-(t,d) \in req -> (t,certByTag t (certTs rl)) \in (certTs rl)
-verifyTs  (digestTs rl) (certByTag t (certTs rl))  (t,(dataByTag t rl)) = 1
-*)
+axiom certByTag_prop1 : forall (rl : (tag * data) list) t d (c : cert), (t, d) \inl rl => (t, certByTag t (certTs rl)) \inl (certTs rl).
 
-(* useless *)
-axiom certByTag_prop1 : forall (rl : (tag * data) list) t d (c : cert), (t, d) \inl rl => certByTag t (certTs rl) = c.
-
-axiom Tscorrect : forall (rl : (tag * data) list, d : data, c : cert, t : tag), 
-  (t, c) \inl certTs rl => verifyTs (digestTs rl) (certByTag t (certTs rl)) (t, d) = true. 
+axiom correctTs : forall (rl : (tag * data) list, d : data, c : cert, t : tag), 
+  (t, c) \inl (certTs rl) => verifyTs (digestTs rl) (certByTag t (certTs rl)) (t, (dataByTag t rl)) = true.
 
 
 module Ts  = {
@@ -214,31 +207,28 @@ module Q (A : AdvQ) = {
     tm <@ P.clock();
     t' <- tm + 1;
     (tp, cs) <@ Ts.processQuery(digested_r, t'); 
-
     return (tp, certByTag t cs, getByTag t final_r); (* (time, cert, set) back to user *)
   }
 }.
 
 
 (* Key gen *)
-op paramDistr : int -> int -> (int list) list distr.
 
+op paramDistr : int -> int -> (int list) list distr.
 axiom keygen_r : forall xss i j, xss \in paramDistr i j => size xss = i /\ (forall xs, xs \in xss => size xs = j).  (* valid length of xss *)
 
 (* op H : *)
 
 (* BLTL Scheme *)    
 module BLTLScheme(EndO : EndOracleT) = {
-
     proc keygen(i : int, j : int) = {  
     var mac_k : macKey;
     var xss, hashed_xss : (int list) list;
    
-    
+        
     mac_k <$ mKeygen;
     xss <$ paramDistr i j;  (* sk list r *)
     hashed_xss <- map(fun xs => map xs (fun x => H x)) xss; (* pk list M *)
     EndO.init(hashed_xss); 
-
   }
 }.
