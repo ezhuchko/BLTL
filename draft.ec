@@ -124,26 +124,34 @@ type tag, data, cert.
 type message_macced = message * mac.
 type requestT = (tag * data) list.
 
+
+print List.
+abbrev (\inl) ['a] (z : 'a) (s : 'a list) : bool = mem s z.
+
 (* Tag-commitment scheme *)
 
 op digestTs : requestT -> digest.
-op certTs : requestT -> int -> cert.
-op verifyTs : digest -> cert -> requestT -> bool.
+op certTs : requestT -> (tag * cert) list.
+op verifyTs : digest -> cert -> (tag * data) -> bool.
 
-(* axiom Tscorrect(rl : requestT, d : digest, c : cert) : d \in digestTs rl => c \in certTs rl => verifyTs (digestTs rl) (certTs rl) (t, d) = true.*)
+op certByTag : tag -> (tag * cert) list -> cert.
+
+axiom certByTag_prop1 : forall (rl : (tag * data) list) t d (c : cert), (t, d) \inl rl => certByTag t (certTs rl) = c.
+
+axiom Tscorrect : forall (rl : (tag * data) list, d : data, c : cert, t : tag), (t, c) \inl certTs rl => verifyTs (digestTs rl) (certByTag t (certTs rl)) (t, d) = true. 
 
 
 module Ts  = {
 
-  proc processQuery(ql : (tag * data) list, t' : Time, i : int) : Time * cert = {
-    var c : cert; 
+  proc processQuery(ql : (tag * data) list, t' : Time) : Time * (tag * cert) list = {
+    var cs : (tag * cert) list; 
     var dg : digest;
     var t : Time;
      
     dg <- digestTs ql;
     t <@ P.publish(t', dg);
-    c <- certTs ql i;
-    return (t, c); 
+    cs <- certTs ql;
+    return (t, cs); 
   }
 }.
 
@@ -153,10 +161,7 @@ type Proof.
 op accKey : pkey distr.
 op digestQ : pkey -> (tag * (message_macced list)) list -> (tag * data) list. 
 op proofQ : pkey -> (tag * (message_macced list)) list -> message_macced -> Proof.
-op verifyQ : pkey -> (tag * data) list -> Proof -> (tag * message list) -> bool.
-
-print List.
-abbrev (\inl) ['a] (z : 'a) (s : 'a list) : bool = mem s z.
+op verifyQ : pkey -> (tag * data) list -> Proof -> message_macced -> bool.
 
 op convertQ : (tag * message_macced) list -> (tag * (message_macced list)) list.
 axiom convertQ_prop1 : forall xs t m,  (t,m) \inl xs => exists (x : (tag * (message_macced list))), x \inl (convertQ xs) /\ x.`1 = t /\ m \inl x.`2.
@@ -165,9 +170,8 @@ op getByTag : tag -> (tag * (message_macced list)) list -> (message_macced list)
 
 axiom convertQ_prop2 : forall (xs : (tag * message_macced) list) t m (x : message_macced list), (t,m) \inl xs => getByTag t (convertQ xs) = x.
 
-(*
-(* rq \in ml *)
-axiom accumCorrect : forall (rq : tag * (message_macced list)) pk (rl : (tag * data) list), pk \in accKey => rq \inl rl => verifyQ pk (digestQ pk rl) (proofQ pk rl rq) rq = true. *)
+axiom accumCorrect : forall (m : message_macced) (t : tag) (ml : message_macced list) pk (xs : (tag * message_macced list) list), pk \in accKey => (t, ml) \inl xs => verifyQ pk (digestQ pk xs) (proofQ pk xs m) m = true. 
+
 
 module type AdvQ = {
   proc askForMore (t : tag, m : message_macced) : (tag * message_macced) list
@@ -188,6 +192,7 @@ module Q (A : AdvQ) = {
     var digested_r : (tag * data) list;
     var p : Proof; 
     var tm, t', tp : Time;    (* tp : time published *)
+    var cs : (tag * cert) list;
     var c : cert;
      
     r <- A.askForMore(t, m);
@@ -200,9 +205,9 @@ module Q (A : AdvQ) = {
     (* send request to Ts *)
     tm <@ P.clock();
     t' <- tm + 1;
-    (tp, c) <@ Ts.processQuery(digested_r, t', i); 
+    (tp, cs) <@ Ts.processQuery(digested_r, t'); 
 
-    return (tp, c, getByTag t final_r); (* (time, cert, set) back to user *)
+    return (tp, certByTag t cs, getByTag t final_r); (* (time, cert, set) back to user *)
   }
 }.
 
