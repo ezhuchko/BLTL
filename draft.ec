@@ -135,10 +135,18 @@ op certTs : requestT -> (tag * cert) list.
 op verifyTs : digest -> cert -> (tag * data) -> bool.
 
 op certByTag : tag -> (tag * cert) list -> cert.
+op dataByTag : tag -> (tag * data) list -> data.
 
+(*
+(t,d) \in req -> (t,certByTag t (certTs rl)) \in (certTs rl)
+verifyTs  (digestTs rl) (certByTag t (certTs rl))  (t,(dataByTag t rl)) = 1
+*)
+
+(* useless *)
 axiom certByTag_prop1 : forall (rl : (tag * data) list) t d (c : cert), (t, d) \inl rl => certByTag t (certTs rl) = c.
 
-axiom Tscorrect : forall (rl : (tag * data) list, d : data, c : cert, t : tag), (t, c) \inl certTs rl => verifyTs (digestTs rl) (certByTag t (certTs rl)) (t, d) = true. 
+axiom Tscorrect : forall (rl : (tag * data) list, d : data, c : cert, t : tag), 
+  (t, c) \inl certTs rl => verifyTs (digestTs rl) (certByTag t (certTs rl)) (t, d) = true. 
 
 
 module Ts  = {
