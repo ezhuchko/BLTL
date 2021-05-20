@@ -127,7 +127,7 @@ type requestT = (tag * data) list.
 (* Tag-commitment scheme *)
 
 op digestTs : requestT -> digest.
-op certTs : requestT -> cert list.
+op certTs : requestT -> int -> cert.
 op verifyTs : digest -> cert -> requestT -> bool.
 
 (* axiom Tscorrect(rl : requestT, d : digest, c : cert) : d \in digestTs rl => c \in certTs rl => verifyTs (digestTs rl) (certTs rl) (t, d) = true.*)
@@ -135,17 +135,18 @@ op verifyTs : digest -> cert -> requestT -> bool.
 
 module Ts  = {
 
-  proc processQuery(ql : (tag * data) list, t' : Time) : Time * cert list = {
-    var cs : cert list; 
+  proc processQuery(ql : (tag * data) list, t' : Time, i : int) : Time * cert = {
+    var c : cert; 
     var dg : digest;
     var t : Time;
      
     dg <- digestTs ql;
     t <@ P.publish(t', dg);
-    cs <- certTs ql;
-    return (t, cs); 
+    c <- certTs ql i;
+    return (t, c); 
   }
 }.
+
 
 type Proof.
 
@@ -164,9 +165,6 @@ op getByTag : tag -> (tag * (message_macced list)) list -> (message_macced list)
 
 axiom convertQ_prop2 : forall (xs : (tag * message_macced) list) t m (x : message_macced list), (t,m) \inl xs => getByTag t (convertQ xs) = x.
 
-op certByTag : tag -> cert list -> cert.
-axiom certByTag_prop1 : forall (c : cert) (cl : cert list) (rl : (tag * data) list) (t : tag) (d : data), (t, d) \inl rl => certByTag t (certTs rl) = c.
-
 (*
 (* rq \in ml *)
 axiom accumCorrect : forall (rq : tag * (message_macced list)) pk (rl : (tag * data) list), pk \in accKey => rq \inl rl => verifyQ pk (digestQ pk rl) (proofQ pk rl rq) rq = true. *)
@@ -184,13 +182,13 @@ module Q (A : AdvQ) = {
     pk <$ accKey;
   }
 
-  proc processQuery(t : tag, m : message_macced) : Time * cert * message_macced list = {
+  proc processQuery(t : tag, m : message_macced, i : int) : Time * cert * message_macced list = {
     var r, r', joined_r : (tag * message_macced) list;
     var final_r : (tag * (message_macced list)) list;
     var digested_r : (tag * data) list;
     var p : Proof; 
     var tm, t', tp : Time;    (* tp : time published *)
-    var cs : cert list;
+    var c : cert;
      
     r <- A.askForMore(t, m);
     (* excludes the event which might happen with negligible probability *)
@@ -202,10 +200,9 @@ module Q (A : AdvQ) = {
     (* send request to Ts *)
     tm <@ P.clock();
     t' <- tm + 1;
-    (tp, cs) <@ Ts.processQuery(digested_r, t'); 
+    (tp, c) <@ Ts.processQuery(digested_r, t', i); 
 
-    p <- proofQ pk final_r m;
-    return (tp, certByTag t cs, getByTag t final_r); (* (time, cert, set) back to user *)
+    return (tp, c, getByTag t final_r); (* (time, cert, set) back to user *)
   }
 }.
 
@@ -215,6 +212,7 @@ op paramDistr : int -> int -> (int list) list distr.
 
 axiom keygen_r : forall xss i j, xss \in paramDistr i j => size xss = i /\ (forall xs, xs \in xss => size xs = j).  (* valid length of xss *)
 
+(* op H : *)
 
 (* BLTL Scheme *)    
 module BLTLScheme(EndO : EndOracleT) = {
@@ -226,7 +224,8 @@ module BLTLScheme(EndO : EndOracleT) = {
     
     mac_k <$ mKeygen;
     xss <$ paramDistr i j;  (* sk list r *)
-(*    hashed_xss <- map(fun xs => map xs (fun x => H x)) xss; (* pk list M *)
-    EndO.init(hashed_xss); *)
+    hashed_xss <- map(fun xs => map xs (fun x => H x)) xss; (* pk list M *)
+    EndO.init(hashed_xss); 
+
   }
 }.
