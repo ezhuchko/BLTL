@@ -15,33 +15,6 @@ op macVer : macKey -> mac -> message -> bool.
 (* Correctness of MAC *)
 axiom macCorrect : forall k m, k \in mKeygen => macVer k (macGen k m) m = true. 
 
-(*
-(* Endorsement Scheme  *)
-
-abstract theory Endorsements.
-
-(* Parameter types and operators *)
-
-type pkey, skey, endorsement, end_msg.
-
-op endKeygen : end_msg list -> (skey * pkey) distr.
-op endGen : skey -> end_msg list -> int -> endorsement.
-op endVer : pkey -> endorsement -> end_msg -> int -> bool.
-
-(* Correctness of Endorsement Scheme *)
-
-axiom endCorrect : forall pk sk i xs m, (sk, pk) \in endKeygen xs => 1 <= i <= size xs => endVer pk (endGen sk xs i) m i = true.     
-
-end Endorsements.
-
-clone Endorsements as E with type pkey <- pkey,
-                             type skey <- skey,
-                             type endorsement <- endorsement,
-                             type end_msg <- end_msg,
-                             op endKeygen <- endKeygen,
-                             op endGen <- endGen,
-                             op endVer <- endVer.
-*)
 
 (* Endorsement Oracle *) 
 
@@ -100,7 +73,6 @@ print Distr.
 
 lemma EndOracleCorrect &m ml: 
   Pr[ EndCorrect.main(ml) @ &m : res ] = 1%r.  
-(* proof. byphoare => //. conseq (: _ ==> true)(:_ ==> res). progress.*)
 proof. byphoare => //. proc. inline*. wp. 
 seq 1 : (1 <= x <= size ml).
 rnd. skip. progress. 
@@ -115,12 +87,26 @@ qed.
 
 type Time = int.
 type digest.
+
+op tdistr : int distr. 
  
 module P = {
  
+  var t : Time 
   var m : (Time, digest) fmap 
+
+  proc init() : unit = {
+    var i : Time; 
+
+    i <$ tdistr;
+    t <- i;
+  }
+
+  proc clock() : Time = {
+    return t;
+  }  
   
-  proc publish(t : Time, t' : Time, d : digest) : Time = {
+  proc publish(t' : Time, d : digest) : Time = {
     if (t < t'){
       t <- t'; 
       m <- m.[t <- d];
@@ -134,26 +120,6 @@ module P = {
 
 }.
 
-(*
-(* Timestamping *)
-
-abstract theory TagcommScheme.
-
-type tag, data, cert.
-type requestT = tag * data.
-
-(* Tag-commitment scheme *)
-
-op digestTs : requestT list -> digest.
-op certTs : requestT list -> cert.
-op verifyTs : digest -> cert -> requestT -> bool.
-
-op tdistr : int distr. 
-
-(* axiom Tscorrect : \forall rl t d, ... verifyTs (digestTs rl) (certTs rl) (t, d) = true.*)
-
-end TagcommScheme.*)
-
 type tag, data, cert.
 type message_macced = message * mac.
 type requestT = (tag * data) list.
@@ -164,67 +130,22 @@ op digestTs : requestT -> digest.
 op certTs : requestT -> cert list.
 op verifyTs : digest -> cert -> requestT -> bool.
 
-op tdistr : int distr. 
-
 (* axiom Tscorrect(rl : requestT, d : digest, c : cert) : d \in digestTs rl => c \in certTs rl => verifyTs (digestTs rl) (certTs rl) (t, d) = true.*)
 
 
 module Ts  = {
 
-  var i : Time
-  var t : Time
-  var t' : Time
-
-  proc init() : unit = {
-    i <$ tdistr;
-    t <- i;
-    t' <- t + 1;
-  }
-
-  proc clock() : Time = {
-    return t;
-  }
-
-  proc processQuery(ql : (tag * data) list) : Time * cert list = {
+  proc processQuery(ql : (tag * data) list, t' : Time) : Time * cert list = {
     var cs : cert list; 
     var dg : digest;
+    var t : Time;
      
     dg <- digestTs ql;
-    t <@ P.publish(t, t', dg);
+    t <@ P.publish(t', dg);
     cs <- certTs ql;
     return (t, cs); 
   }
 }.
-
-
-(*
-(* BLT Aggregator *)
-
-abstract theory Accumulator.
-
-type pkey, tag, data, Proof.
-type request.
-
-op accKey : pkey distr.
-op digestQ : pkey -> request list -> data. 
-op proofQ : pkey -> request list -> request -> Proof.
-op verifyQ : pkey -> data -> Proof -> request -> bool.
-
-(* rq \in ml *)
-axiom accumCorrect : forall rq pk ml, pk \in accKey => verifyQ pk (digestQ pk ml) (proofQ pk ml rq) rq = true. 
-
-end Accumulator.
-
-clone Accumulator as A with type pkey <- pkey,
-                            type tag <- tag,
-                            type data <- data,
-                            type Proof <- Proof,
-                            type request <- tag * message,
-                            op accKey <- accKey,
-                            op digestQ <- digestQ,
-                            op proofQ <- proofQ,
-                            op verifyQ <- verifyQ.
-*)
 
 type Proof.
 
@@ -243,13 +164,12 @@ op getByTag : tag -> (tag * (message_macced list)) list -> (message_macced list)
 
 axiom convertQ_prop2 : forall (xs : (tag * message_macced) list) t m (x : message_macced list), (t,m) \inl xs => getByTag t (convertQ xs) = x.
 
-axiom convertQ_prop1' : forall xs t m,  (t,m) \inl xs => m \inl getByTag t (convertQ xs).
+op certByTag : tag -> cert list -> cert.
+axiom certByTag_prop1 : forall (c : cert) (cl : cert list) (rl : (tag * data) list) (t : tag) (d : data), (t, d) \inl rl => certByTag t (certTs rl) = c.
 
-
-
+(*
 (* rq \in ml *)
-(* axiom accumCorrect : forall (rq : tag * message list) pk (rl : (tag * data) list), pk \in accKey => rq \in rl => verifyQ pk (digestQ pk rl) (proofQ pk rl rq) rq = true. 
-*)
+axiom accumCorrect : forall (rq : tag * (message_macced list)) pk (rl : (tag * data) list), pk \in accKey => rq \inl rl => verifyQ pk (digestQ pk rl) (proofQ pk rl rq) rq = true. *)
 
 module type AdvQ = {
   proc askForMore (t : tag, m : message_macced) : (tag * message_macced) list
@@ -264,26 +184,28 @@ module Q (A : AdvQ) = {
     pk <$ accKey;
   }
 
-  proc processQuery(t : tag, m : message_macced) : Time * cert list * (tag * (message_macced list)) list = {
+  proc processQuery(t : tag, m : message_macced) : Time * cert * message_macced list = {
     var r, r', joined_r : (tag * message_macced) list;
     var final_r : (tag * (message_macced list)) list;
     var digested_r : (tag * data) list;
     var p : Proof; 
-    var tp : Time;    (* time published *)
+    var tm, t', tp : Time;    (* tp : time published *)
     var cs : cert list;
      
     r <- A.askForMore(t, m);
     (* excludes the event which might happen with negligible probability *)
     r' <- filter (fun (tm : tag * message_macced) => tm.`1 <> t) r; 
     joined_r <- r ++ [(t, m)];  
-    final_r <- convertQ joined_r; (* final_r = (t',S_t') .... (t, [m]) *)
+    final_r <- convertQ joined_r;
     digested_r <- digestQ pk final_r; 
     
     (* send request to Ts *)
-    (tp, cs) <@ Ts.processQuery(digested_r); 
+    tm <@ P.clock();
+    t' <- tm + 1;
+    (tp, cs) <@ Ts.processQuery(digested_r, t'); 
 
     p <- proofQ pk final_r m;
-    return (tp, cs, final_r); (* (time, cert, set) back to user *)
+    return (tp, certByTag t cs, getByTag t final_r); (* (time, cert, set) back to user *)
   }
 }.
 
@@ -295,16 +217,16 @@ axiom keygen_r : forall xss i j, xss \in paramDistr i j => size xss = i /\ (fora
 
 
 (* BLTL Scheme *)    
-module BLTLScheme(TsO : TS, EndO : EndOracleT) = {
+module BLTLScheme(EndO : EndOracleT) = {
 
     proc keygen(i : int, j : int) = {  
-    var mac_k : mkey;
+    var mac_k : macKey;
     var xss, hashed_xss : (int list) list;
    
     
     mac_k <$ mKeygen;
-    xss <- paramDistr i j;  (* sk list r *)
-    hashed_xss <- map(fun xs => map xs (fun x => H x)) xss; (* pk list M *)
-    EndO.init(hashed_xss); 
+    xss <$ paramDistr i j;  (* sk list r *)
+(*    hashed_xss <- map(fun xs => map xs (fun x => H x)) xss; (* pk list M *)
+    EndO.init(hashed_xss); *)
   }
 }.
