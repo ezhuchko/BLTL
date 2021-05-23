@@ -133,8 +133,6 @@ op digestTs : (tag * data) list -> digest.
 op certTs : (tag * data) list -> (tag * cert) list.
 op verifyTs : digest -> cert -> (tag * data) -> bool.
 
-(* axiom : if multiple d's exist for same t, keep first one and ignore the rest *)
-
 op certByTag : tag -> (tag * cert) list -> cert.
 op dataByTag : tag -> (tag * data) list -> data.
 
@@ -184,6 +182,10 @@ module type AdvQ = {
   proc askForMore (t : tag, m : message_macced) : (tag * message_macced) list
 }. 
 
+module type Qt = {
+   proc *init() : unit
+   proc processQuery (t : tag, m : message_macced) : Time * cert * message_macced list
+}.
 
 module Q (A : AdvQ) = {
 
@@ -193,7 +195,7 @@ module Q (A : AdvQ) = {
     pk <$ accKey;
   }
 
-  proc processQuery(t : tag, m : message_macced, i : int) : Time * cert * message_macced list = {
+  proc processQuery(t : tag, m : message_macced) : Time * cert * message_macced list = {
     var r, r', joined_r : (tag * message_macced) list;
     var final_r : (tag * (message_macced list)) list;
     var digested_r : (tag * data) list;
@@ -225,18 +227,51 @@ op paramDistr : int -> int -> (int list) list distr.
 axiom keygen_r : forall xss i j, 
   xss \in paramDistr i j => size xss = i /\ (forall xs, xs \in xss => size xs = j).  (* valid length of xss *)
 
-(* op H : *)
+type bit_string = int.
+op H : bit_string -> bit_string.
 
 (* BLTL Scheme *)    
-module BLTLScheme(EndO : EndOracleT) = {
-    proc keygen(i : int, j : int) = {  
-    var mac_k : macKey;
+module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
+
+  var mac_k : macKey
+   
+  proc keygen(i : int, j : int) = {  
     var xss, hashed_xss : (int list) list;
    
         
     mac_k <$ mKeygen;
     xss <$ paramDistr i j;  (* sk list r *)
-    hashed_xss <- map(fun xs => map xs (fun x => H x)) xss; (* pk list M *)
-    EndO.init(hashed_xss); 
+ (*   hashed_xss <- map(fun xs => map xs (fun x => H x)) xss; (* pk list M *)
+    EndO.init(hashed_xss); *)
   }
+
+(* Client *)
+  proc sign(m : message, tg : tag, C : int, E : int, L : int) :(* endorsement * bit_string list * int * int * int * int * cert * data * Proof*)unit = {
+    var t, t' : Time;
+    var i : Time;
+    var e : endorsement;
+    var mm : message_macced;
+    var c : cert;
+    var st : message_macced list;
+    var dg : digest option;
+    var ver : bool;
+
+    t <@ P.clock();   
+    if(C <= t <= C+E){
+      i <- t-C;
+    }(*else{
+      i <- None;
+    }*)
+    e <- EndO.genEnd(i); 
+    mm <- (m, macGen mac_k m);
+    (t', c, st) <@ Q.processQuery(tg, mm);
+    if (t < t' <= t+L){
+      dg <@ P.get(t');
+     (* ver <- verifyTs pk dg c (tg, digestQ pk (tg, st));   *)
+    (* mm \in st *)
+    (* for every x \in st, there is a valid mac *)
+    }
+   (* return (e,  , i, t'-t, )*)
+  }   
+
 }.
