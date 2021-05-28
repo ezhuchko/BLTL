@@ -255,6 +255,7 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
     xss <$ paramDistr i j;  (* sk list r *)
     hashed_xss <- map(fun xs => List.map (fun x => H x) xs) xss; (* pk list M *) 
     EndO.init(hashed_xss);
+    Q.init();
     return (mac_k, xss);
   }
 
@@ -293,7 +294,7 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
     var valid_e : bool;
     
     valid_e <- EndO.ver(e, m_i, i);
-    
+    }
 *)
 
 }.
