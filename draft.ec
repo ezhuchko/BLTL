@@ -284,20 +284,19 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
   var rounds : int
   var max_lag : int
   var mac_k : macKey
-  var xss : (int list) list
+  var xss : end_msg list
    
   proc keygen(i : int, j : int, act_time : int, rounds : int, max_lag : int) = {  
-    var xss, hashed_xss : (int list) list;
+    var xss, hashed_xss : end_msg list;
         
     mac_k <$ mKeygen;
     xss <$ paramDistr i j;  (* sk list r *)
     hashed_xss <- map(fun xs => List.map (fun x => H x) xs) xss; (* pk list M *) 
     EndO.init(hashed_xss);
-    Q.init();
   }
 
 (* Client *)
-  proc sign(m : message, tg : tag) = {
+  proc sign(m : message) = {
     var t, i, t' : Time;
     var e : endorsement;
     var mm : message_macced;
@@ -305,7 +304,7 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
     var st : message_macced list;
     var dg : digest option;
     var ver : bool;
-    var r_i : int list; 
+    var r_i : end_msg; 
 
     t <@ P.clock();   
     while (act_time <= t <= act_time + rounds){
@@ -318,7 +317,7 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
     (t', c, st) <@ Q.processQuery(head witness r_i, mm);
     while (t < t' <= t + max_lag){
       dg <@ P.get(t');
-      ver <- verifyTs dg c (tg, digestQ pk (tg, st)); 
+      ver <- verifyTs dg c (head witness r_i, digestQ pk (head witness r_i, st));    
     }
 
     (* mm \in st *)
