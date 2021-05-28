@@ -261,7 +261,7 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
   }
 
 (* Client *)
-  proc sign(m : message, pk : acc_pkey) = {
+  proc sign(m : message) = {
     var t, i, t' : Time;
     var e : endorsement;
     var mm : message_macced;
