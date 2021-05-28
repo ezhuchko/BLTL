@@ -289,5 +289,11 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
     }
    (* return (e, nth witness hashed_xss i, i, t'-t, nth witness r_i t'-t, c, .., .., macGen mac_k m )*) 
 
+(*  proc verify(m : message (* signature *)) = {
+    var valid_e : bool;
+    
+    valid_e <- EndO.ver(e, m_i, i);
+    
+*)
 
 }.
