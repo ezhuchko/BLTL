@@ -293,17 +293,18 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
     xss <$ paramDistr i j;  (* sk list r *)
     hashed_xss <- map(fun xs => List.map (fun x => H x) xs) xss; (* pk list M *) 
     EndO.init(hashed_xss);
+    Q.init();
   }
 
 (* Client *)
-  proc sign(m : message) = {
+  proc sign(m : message, pk : acc_pkey) = {
     var t, i, t' : Time;
     var e : endorsement;
     var mm : message_macced;
     var c : cert;
     var st : message_macced list;
     var dg : digest option;
-    var ver : bool;
+    var v : bool;
     var r_i : end_msg; 
 
     t <@ P.clock();   
@@ -314,15 +315,16 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
     e <- EndO.genEnd(i); 
     mm <- (m, macGen mac_k m); 
     r_i <- nth witness xss i; 
+  
+    (* send request to Q *)
     (t', c, st) <@ Q.processQuery(head witness r_i, mm);
     while (t < t' <= t + max_lag){
       dg <@ P.get(t');
-      ver <- verifyTs dg c (head witness r_i, digestQ pk (head witness r_i, st));    
+      v <- verifyTs dg c (head witness r_i, digestQ pk (head witness r_i, st)) /\ mm \in st; 
     }
 
-    (* mm \in st *)
     (* for every x \in st, there is a valid mac *)
     }
-   (* return (e,  , i, t'-t, )*) 
+   (* return (e, nth witness hashed_xss i, i, t'-t, nth witness r_i t'-t, c, .., .., macGen mac_k m )*) 
 
 }.
