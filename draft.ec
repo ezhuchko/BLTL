@@ -66,7 +66,7 @@ module EndCorrect = {
     var b : bool;
     var x : int;
 
-    x <$ [1 .. size ml];
+    x <$ [0 .. size ml];
     EndOracle.init(ml);
     e <- EndOracle.genEnd(x);
     b <- EndOracle.verEnd(e, nth witness ml x, x);
@@ -77,18 +77,26 @@ module EndCorrect = {
 print Distr.
 print dinterE.
 
-
+print DInterval.
 lemma EndOracleCorrect &m ml: 
   Pr[ EndCorrect.main(ml) @ &m : res ] = 1%r.  
-proof. byphoare => //. proc. inline*. wp. 
-seq 1 : (1 <= x <= size ml).
+proof. byphoare (_ : ml = arg ==> _). proc. inline*. wp. 
+seq 1 : (0 <= x <= size ml).
 rnd. skip. progress.
-rnd. skip. progress.
-rewrite dinterE. simplify. admit.
+rnd. skip. progress. 
+
+pose z := size ml{hr}.
+have q : 0 <= z. smt.
+
+smt.
+
+
+
 rnd (fun (skpk : skey * pkey) => true). wp.
 skip. progress.   
-admit. admit. admit. auto.
-qed. 
+admit.
+admit.
+admitted.
 
 end Endorsements.
 
@@ -169,7 +177,7 @@ module Ts  = {
 type acc_pkey, Proof.
 
 op accKey : acc_pkey distr.
-op digestQ : acc_pkey -> (tag * (message_macced list)) list -> (tag * data) list. 
+op digestQ : acc_pkey -> (tag * (message_macced list))  -> (tag * data) . 
 op proofQ : acc_pkey -> (tag * (message_macced list)) list -> message_macced -> Proof.
 op verifyQ : acc_pkey -> (tag * data) list -> Proof -> message_macced -> bool.
 
@@ -182,16 +190,17 @@ op getByTag : tag -> (tag * (message_macced list)) list -> (message_macced list)
 axiom convertQ_prop2 : forall (xs : (tag * message_macced) list) t m (x : message_macced list), 
   (t,m) \inl xs => getByTag t (convertQ xs) = x.
 
+(*
 axiom accumCorrect : forall (m : message_macced) (t : tag) (ml : message_macced list) (pk : acc_pkey) (xs : (tag * message_macced list) list), 
   pk \in accKey => (t, ml) \inl xs => verifyQ pk (digestQ pk xs) (proofQ pk xs m) m = true. 
-
+*)
 
 module type AdvQ = {
   proc askForMore (t : tag, m : message_macced) : (tag * message_macced) list
 }. 
 
 module type Qt = {
-   proc *init() : unit
+   proc *init() : acc_pkey
    proc processQuery (t : tag, m : message_macced) : Time * cert * message_macced list
 }.
 
@@ -199,8 +208,9 @@ module Q (A : AdvQ) = {
 
   var pk : acc_pkey
 
-  proc init() : unit = {
+  proc init() : acc_pkey = {
     pk <$ accKey;
+    return pk;
   }
 
   proc processQuery(t : tag, m : message_macced) : Time * cert * message_macced list = {
@@ -217,7 +227,7 @@ module Q (A : AdvQ) = {
     r' <- filter (fun (tm : tag * message_macced) => tm.`1 <> t) r; 
     joined_r <- r ++ [(t, m)];  
     final_r <- convertQ joined_r;
-    digested_r <- digestQ pk final_r; 
+    digested_r <- map (digestQ pk) final_r; 
     
     (* send request to Ts *)
     tm <@ P.clock();
@@ -239,28 +249,30 @@ type bit_string = int.
 op H : bit_string -> bit_string. 
 
 clone export Endorsements as E.
+type bltl_signature.
 
 (* BLTL Scheme *)    
 module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
-
   var act_time : int
   var rounds : int
   var max_lag : int
+  var pkQ : acc_pkey (*remove*)
    
-  proc keygen(i : int, j : int, act_time : int, rounds : int, max_lag : int) = {  
+  proc keygen( act_time : int, rounds : int, max_lag : int) = {  
     var xss, hashed_xss : end_msg list;
     var mac_k : macKey;
         
     mac_k <$ mKeygen;
-    xss <$ paramDistr i j;  (* sk list r *)
+    xss <$ paramDistr act_time rounds;  (* sk list r *)
     hashed_xss <- map(fun xs => List.map (fun x => H x) xs) xss; (* pk list M *) 
     EndO.init(hashed_xss);
-    Q.init();
-    return (mac_k, xss);
+    pkQ <- Q.init();
+    (*return ((..secret key...),(...public key...)); *)
+    return (mac_k, xss); (*returns both public and secret keys*)
   }
 
 (* Client *)
-  proc sign(m : message, mac_k : macKey, xss : end_msg list) = {
+  proc sign(m : message, mac_k : macKey, xss : end_msg list) : bltl_signature = {
     var t, i, t' : Time;
     var e : endorsement;
     var mm : message_macced;
@@ -269,22 +281,33 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
     var dg : digest option;
     var v : bool;
     var r_i : end_msg; 
- 
-    while (act_time <= t <= act_time + rounds){
-      t <@ P.clock();  
-      i <- t - act_time;
-    }
+    var sig : bltl_signature;
+    
+    t <- P.clock();
+    if(act_time <= t < act_time + rounds){
+     i <- t - act_time;
+     e <- EndO.genEnd(i); 
+     mm <- (m, macGen mac_k m); 
+     r_i <- nth witness xss i; 
 
-    e <- EndO.genEnd(i); 
-    mm <- (m, macGen mac_k m); 
-    r_i <- nth witness xss i; 
-  
     (* send request to Q *)
     (t', c, st) <@ Q.processQuery(head witness r_i, mm);
-    while (t < t' <= t + max_lag){
+    if(t < t' <= t + max_lag){
       dg <@ P.get(t');
-      v <- verifyTs dg c (head witness r_i, digestQ pk (head witness r_i, st)) /\ mm \in st; 
+      v <- verifyTs (oget dg) c ( digestQ pkQ (head witness r_i, st)) /\ mm \in st; 
+       
+
     }
+
+    } 
+
+    return sig;
+ 
+  
+
+
+
+
 
     (* for every x \in st, there is a valid mac *)
     }
