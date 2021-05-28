@@ -85,7 +85,7 @@ proof. byphoare => //. proc. inline*. wp.
 seq 1 : (1 <= x <= size ml).
 rnd. skip. progress. 
 rnd. skip. progress.
-rewrite muE. admit.
+rewrite dinterE. admit.
 rnd (fun (skpk : skey * pkey) => true). wp.
 skip. progress.   
 admit. admit. admit. auto.
