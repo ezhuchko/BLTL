@@ -16,7 +16,6 @@ op macVer : macKey -> mac -> message -> bool.
 axiom macCorrect : forall k m,  
   k \in mKeygen => macVer k (macGen k m) m = true. 
 
-(* to do - clone End *)
 
 (* Endorsement Oracle *) 
 
@@ -83,9 +82,9 @@ lemma EndOracleCorrect &m ml:
   Pr[ EndCorrect.main(ml) @ &m : res ] = 1%r.  
 proof. byphoare => //. proc. inline*. wp. 
 seq 1 : (1 <= x <= size ml).
-rnd. skip. progress. 
 rnd. skip. progress.
-rewrite dinterE. admit.
+rnd. skip. progress.
+rewrite dinterE. simplify. admit.
 rnd (fun (skpk : skey * pkey) => true). wp.
 skip. progress.   
 admit. admit. admit. auto.
@@ -247,21 +246,20 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
   var act_time : int
   var rounds : int
   var max_lag : int
-  var mac_k : macKey
-  var xss : end_msg list
    
   proc keygen(i : int, j : int, act_time : int, rounds : int, max_lag : int) = {  
     var xss, hashed_xss : end_msg list;
+    var mac_k : macKey;
         
     mac_k <$ mKeygen;
     xss <$ paramDistr i j;  (* sk list r *)
     hashed_xss <- map(fun xs => List.map (fun x => H x) xs) xss; (* pk list M *) 
     EndO.init(hashed_xss);
-    Q.init();
+    return (mac_k, xss);
   }
 
 (* Client *)
-  proc sign(m : message) = {
+  proc sign(m : message, mac_k : macKey, xss : end_msg list) = {
     var t, i, t' : Time;
     var e : endorsement;
     var mm : message_macced;
