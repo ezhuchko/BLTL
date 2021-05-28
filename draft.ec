@@ -16,12 +16,14 @@ op macVer : macKey -> mac -> message -> bool.
 axiom macCorrect : forall k m,  
   k \in mKeygen => macVer k (macGen k m) m = true. 
 
-(*
+(* to do - clone End *)
+
 (* Endorsement Oracle *) 
 
 abstract theory Endorsements.
 
-type pkey, skey, endorsement, end_msg.
+type pkey, skey, endorsement.
+type end_msg = int list.
 
 op endKeygen : end_msg list -> (skey * pkey) distr.
 op endGen : skey -> end_msg list -> int -> endorsement.
@@ -74,61 +76,22 @@ module EndCorrect = {
 }.
 
 print Distr.
-print dinter1E.
+print dinterE.
 
-(*
+
 lemma EndOracleCorrect &m ml: 
   Pr[ EndCorrect.main(ml) @ &m : res ] = 1%r.  
 proof. byphoare => //. proc. inline*. wp. 
 seq 1 : (1 <= x <= size ml).
 rnd. skip. progress. 
-rnd. skip. simplify. 
-admit.
+rnd. skip. progress.
+rewrite muE. admit.
 rnd (fun (skpk : skey * pkey) => true). wp.
-skip. progress.  
+skip. progress.   
 admit. admit. admit. auto.
-qed. *)
+qed. 
 
 end Endorsements.
-*)
-
-type pkey, skey, endorsement.
-type end_msg = int list.
-
-op endKeygen : end_msg list -> (skey * pkey) distr.
-op endGen : skey -> end_msg list -> int -> endorsement.
-op endVer : pkey -> endorsement -> end_msg -> int -> bool.
-
-axiom endCorrect : forall pk sk i xs m, 
- (sk, pk) \in endKeygen xs => 1 <= i <= size xs => endVer pk (endGen sk xs i) m i = true. 
-
-module type EndOracleT = {
-  proc *init(xs : end_msg list) : skey * pkey
-  proc genEnd(i : int) : endorsement 
-  proc verEnd(e : endorsement, m : int list, i : int) : bool
-}.
-
-module EndOracle : EndOracleT = {
-
-  var pk : pkey
-  var sk : skey
-  var xs : end_msg list 
-
-  proc init(xsp : end_msg list) : skey * pkey = {
-  (sk, pk) <$ endKeygen xsp;
-  xs <- xsp;
-  return (sk, pk);
-  }
-
-  proc genEnd(i : int) : endorsement = {
-    return endGen sk xs i;
-  }
-
-  proc verEnd(e : endorsement, m : end_msg, i : int) : bool = {
-    return endVer pk e m i;
-  }
-
-}. 
 
 
 (* Publisher *)
@@ -276,6 +239,7 @@ axiom keygen_r : forall xss i j,
 type bit_string = int.
 op H : bit_string -> bit_string. 
 
+clone export Endorsements as E.
 
 (* BLTL Scheme *)    
 module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
@@ -326,5 +290,6 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
     (* for every x \in st, there is a valid mac *)
     }
    (* return (e, nth witness hashed_xss i, i, t'-t, nth witness r_i t'-t, c, .., .., macGen mac_k m )*) 
+
 
 }.
