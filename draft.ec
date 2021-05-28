@@ -19,6 +19,8 @@ axiom macCorrect : forall k m,
 
 (* Endorsement Oracle *) 
 
+abstract theory Endorsements.
+
 type pkey, skey, endorsement, end_msg.
 
 op endKeygen : end_msg list -> (skey * pkey) distr.
@@ -72,19 +74,20 @@ module EndCorrect = {
 }.
 
 print Distr.
-
+print dinter1E.
 
 lemma EndOracleCorrect &m ml: 
   Pr[ EndCorrect.main(ml) @ &m : res ] = 1%r.  
 proof. byphoare => //. proc. inline*. wp. 
 seq 1 : (1 <= x <= size ml).
 rnd. skip. progress. 
-rnd. admit. 
+rnd. skip. simplify. 
 rnd (fun (skpk : skey * pkey) => true). wp.
-skip. progress. 
+skip. progress.  
 admit. admit. admit. auto.
 qed.
 
+end Endorsements.
 
 (* Publisher *)
 
@@ -228,7 +231,8 @@ axiom keygen_r : forall xss i j,
   xss \in paramDistr i j => size xss = i /\ (forall xs, xs \in xss => size xs = j).  (* valid length of xss *)
 
 type bit_string = int.
-op H : bit_string -> bit_string.
+op H : bit_string -> bit_string. 
+
 
 (* BLTL Scheme *)    
 module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
@@ -241,8 +245,8 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
         
     mac_k <$ mKeygen;
     xss <$ paramDistr i j;  (* sk list r *)
- (*   hashed_xss <- map(fun xs => map xs (fun x => H x)) xss; (* pk list M *)
-    EndO.init(hashed_xss); *)
+    hashed_xss <- map(fun xs => List.map (fun x => H x) xs) xss; (* pk list M *)
+    EndO.init(hashed_xss); 
   }
 
 (* Client *)
