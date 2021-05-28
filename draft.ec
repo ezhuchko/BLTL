@@ -270,9 +270,9 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
     var dg : digest option;
     var v : bool;
     var r_i : end_msg; 
-
-    t <@ P.clock();   
+ 
     while (act_time <= t <= act_time + rounds){
+      t <@ P.clock();  
       i <- t - act_time;
     }
 
