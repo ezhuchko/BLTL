@@ -16,7 +16,7 @@ op macVer : macKey -> mac -> message -> bool.
 axiom macCorrect : forall k m,  
   k \in mKeygen => macVer k (macGen k m) m = true. 
 
-
+(*
 (* Endorsement Oracle *) 
 
 abstract theory Endorsements.
@@ -76,18 +76,60 @@ module EndCorrect = {
 print Distr.
 print dinter1E.
 
+(*
 lemma EndOracleCorrect &m ml: 
   Pr[ EndCorrect.main(ml) @ &m : res ] = 1%r.  
 proof. byphoare => //. proc. inline*. wp. 
 seq 1 : (1 <= x <= size ml).
 rnd. skip. progress. 
 rnd. skip. simplify. 
+admit.
 rnd (fun (skpk : skey * pkey) => true). wp.
 skip. progress.  
 admit. admit. admit. auto.
-qed.
+qed. *)
 
 end Endorsements.
+*)
+
+type pkey, skey, endorsement.
+type end_msg = int list.
+
+op endKeygen : end_msg list -> (skey * pkey) distr.
+op endGen : skey -> end_msg list -> int -> endorsement.
+op endVer : pkey -> endorsement -> end_msg -> int -> bool.
+
+axiom endCorrect : forall pk sk i xs m, 
+ (sk, pk) \in endKeygen xs => 1 <= i <= size xs => endVer pk (endGen sk xs i) m i = true. 
+
+module type EndOracleT = {
+  proc *init(xs : end_msg list) : skey * pkey
+  proc genEnd(i : int) : endorsement 
+  proc verEnd(e : endorsement, m : int list, i : int) : bool
+}.
+
+module EndOracle : EndOracleT = {
+
+  var pk : pkey
+  var sk : skey
+  var xs : end_msg list 
+
+  proc init(xsp : end_msg list) : skey * pkey = {
+  (sk, pk) <$ endKeygen xsp;
+  xs <- xsp;
+  return (sk, pk);
+  }
+
+  proc genEnd(i : int) : endorsement = {
+    return endGen sk xs i;
+  }
+
+  proc verEnd(e : endorsement, m : end_msg, i : int) : bool = {
+    return endVer pk e m i;
+  }
+
+}. 
+
 
 (* Publisher *)
 
@@ -124,7 +166,8 @@ module P = {
   }
 }.
 
-type tag, data, cert.
+type tag = int. (* to do : clone instead *)
+type data, cert.
 type message_macced = message * mac.
 
 print List.
@@ -161,12 +204,12 @@ module Ts  = {
 }.
 
 
-type Proof.
+type acc_pkey, Proof.
 
-op accKey : pkey distr.
-op digestQ : pkey -> (tag * (message_macced list)) list -> (tag * data) list. 
-op proofQ : pkey -> (tag * (message_macced list)) list -> message_macced -> Proof.
-op verifyQ : pkey -> (tag * data) list -> Proof -> message_macced -> bool.
+op accKey : acc_pkey distr.
+op digestQ : acc_pkey -> (tag * (message_macced list)) list -> (tag * data) list. 
+op proofQ : acc_pkey -> (tag * (message_macced list)) list -> message_macced -> Proof.
+op verifyQ : acc_pkey -> (tag * data) list -> Proof -> message_macced -> bool.
 
 op convertQ : (tag * message_macced) list -> (tag * (message_macced list)) list.
 axiom convertQ_prop1 : forall xs t m,  
@@ -177,7 +220,7 @@ op getByTag : tag -> (tag * (message_macced list)) list -> (message_macced list)
 axiom convertQ_prop2 : forall (xs : (tag * message_macced) list) t m (x : message_macced list), 
   (t,m) \inl xs => getByTag t (convertQ xs) = x.
 
-axiom accumCorrect : forall (m : message_macced) (t : tag) (ml : message_macced list) pk (xs : (tag * message_macced list) list), 
+axiom accumCorrect : forall (m : message_macced) (t : tag) (ml : message_macced list) (pk : acc_pkey) (xs : (tag * message_macced list) list), 
   pk \in accKey => (t, ml) \inl xs => verifyQ pk (digestQ pk xs) (proofQ pk xs m) m = true. 
 
 
@@ -192,7 +235,7 @@ module type Qt = {
 
 module Q (A : AdvQ) = {
 
-  var pk : pkey
+  var pk : acc_pkey
 
   proc init() : unit = {
     pk <$ accKey;
@@ -237,45 +280,50 @@ op H : bit_string -> bit_string.
 (* BLTL Scheme *)    
 module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
 
+  var act_time : int
+  var rounds : int
+  var max_lag : int
   var mac_k : macKey
+  var xss : (int list) list
    
-  proc keygen(i : int, j : int) = {  
+  proc keygen(i : int, j : int, act_time : int, rounds : int, max_lag : int) = {  
     var xss, hashed_xss : (int list) list;
-   
         
     mac_k <$ mKeygen;
     xss <$ paramDistr i j;  (* sk list r *)
-    hashed_xss <- map(fun xs => List.map (fun x => H x) xs) xss; (* pk list M *)
-    EndO.init(hashed_xss); 
+    hashed_xss <- map(fun xs => List.map (fun x => H x) xs) xss; (* pk list M *) 
+    EndO.init(hashed_xss);
+    Q.init();
   }
 
 (* Client *)
-  proc sign(m : message, tg : tag, C : int, E : int, L : int) :(* endorsement * bit_string list * int * int * int * int * cert * data * Proof*)unit = {
-    var t, t' : Time;
-    var i : Time;
+  proc sign(m : message, tg : tag) = {
+    var t, i, t' : Time;
     var e : endorsement;
     var mm : message_macced;
     var c : cert;
     var st : message_macced list;
     var dg : digest option;
     var ver : bool;
+    var r_i : int list; 
 
     t <@ P.clock();   
-    if(C <= t <= C+E){
-      i <- t-C;
-    }(*else{
-      i <- None;
-    }*)
+    while (act_time <= t <= act_time + rounds){
+      i <- t - act_time;
+    }
+
     e <- EndO.genEnd(i); 
-    mm <- (m, macGen mac_k m);
-    (t', c, st) <@ Q.processQuery(tg, mm);
-    if (t < t' <= t+L){
+    mm <- (m, macGen mac_k m); 
+    r_i <- nth witness xss i; 
+    (t', c, st) <@ Q.processQuery(head witness r_i, mm);
+    while (t < t' <= t + max_lag){
       dg <@ P.get(t');
-     (* ver <- verifyTs pk dg c (tg, digestQ pk (tg, st));   *)
+      ver <- verifyTs dg c (tg, digestQ pk (tg, st)); 
+    }
+
     (* mm \in st *)
     (* for every x \in st, there is a valid mac *)
     }
-   (* return (e,  , i, t'-t, )*)
-  }   
+   (* return (e,  , i, t'-t, )*) 
 
 }.
