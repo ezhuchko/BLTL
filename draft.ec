@@ -59,8 +59,8 @@ module EndOracle : EndOracleT = {
 
 }. 
 
-
 module EndCorrect = {
+
   proc main(ml : end_msg list) = {
     var e : endorsement;
     var b : bool;
@@ -74,10 +74,7 @@ module EndCorrect = {
   }
 }.
 
-print Distr.
-print dinterE.
-print DInterval.
-
+(* islossless EndCorrect.main => *)
 (*
 lemma EndOracleCorrect &m ml: 
   Pr[ EndCorrect.main(ml) @ &m : res ] = 1%r.  
@@ -86,17 +83,16 @@ seq 1 : (0 <= x <= size ml).
 rnd. skip. progress.
 rnd. skip. progress. 
 
-pose z := size ml{hr}.
+pose z := size ml{hr}. 
 have q : 0 <= z. smt.
-
 smt.
 
 rnd (fun (skpk : skey * pkey) => true). wp.
 skip. progress.   
 admit.
 admit.
-admitted.
-*)
+admitted.*)
+
 
 end Endorsements.
 
@@ -287,17 +283,17 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
     
     t <- P.clock();
     if(act_time <= t < act_time + rounds){
-     i <- t - act_time;
-     e <- EndO.genEnd(i); 
-     mm <- (m, macGen mac_k m); 
-     r_i <- nth witness xss i; 
-
-    (* send request to Q *)
-    (t', c, st) <@ Q.processQuery(head witness r_i, mm);
+      i <- t - act_time;
+      e <- EndO.genEnd(i); 
+      mm <- (m, macGen mac_k m); 
+      r_i <- nth witness xss i; 
+     
+      (* send request to Q *)
+      (t', c, st) <@ Q.processQuery(head witness r_i, mm);
     if(t < t' <= t + max_lag /\ v = true){
       dg <@ P.get(t');
       v <- verifyTs (oget dg) c (digestQ pkQ (head witness r_i, st)) /\ mm \in st /\ forall mm, mm \in st => macVer mac_k mm.`2 mm.`1 = true; 
-    } 
+    }
     
     l <- t'-t;
     q <- digestQ pkQ (head witness r_i, st);
@@ -332,7 +328,7 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
       }
     }
   
-    return ver = true; (* ?? *)
+   (* return valid_e /\ ... = true;  ?? *)
   }
     
 }.
