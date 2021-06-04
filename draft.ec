@@ -243,32 +243,37 @@ axiom keygen_r : forall xss i j,
 
 type bit_string = int.
 op H : bit_string -> bit_string. 
+op valid_mac : message_macced list -> bool.
+axiom valid_mac_1 : forall (mm : message_macced) xs k, mm \inl xs => macVer k mm.`2 mm.`1 = true.
 
 clone export Endorsements as E.
 type bltl_signature = endorsement * end_msg * Time * Time * int * int * cert * (tag * data) * Proof.
+type bltl_sk = acc_pkey * macKey * end_msg list.
+type bltl_pk = int * int * int. 
 
 (* BLTL Scheme *)    
 module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
-
-  var act_time : int
-  var rounds : int
-  var max_lag : int
-  var pkQ : acc_pkey (* to remove *)
    
-  proc keygen( act_time : int, rounds : int, max_lag : int) = {  
+  proc keygen(act_time : int, rounds : int, max_lag : int) : bltl_sk * bltl_pk  = {  
     var xss, hashed_xss : end_msg list;
     var mac_k : macKey;
+    var pkQ : acc_pkey;
+    var sk : bltl_sk;
+    var pk : bltl_pk;
         
     mac_k <$ mKeygen;
     xss <$ paramDistr act_time rounds;  (* sk list r *)
     hashed_xss <- map(fun xs => List.map (fun x => H x) xs) xss; (* pk list M *) 
     EndO.init(hashed_xss);
     pkQ <- Q.init();
-    return ((mac_k, xss), (act_time, rounds, max_lag)); (* (sk, pk) *)
+    
+    sk <- (pkQ, mac_k, xss);
+    pk <- (act_time, rounds, max_lag);
+    return (sk, pk); 
   }
 
 (* Client *)
-  proc sign(m : message, mac_k : macKey, xss : end_msg list) : bltl_signature = {
+  proc sign(m : message, sk : bltl_sk, pk : bltl_pk) : bltl_signature = {
     var t, i, t', l : Time;
     var e : endorsement;
     var mm : message_macced;
@@ -282,22 +287,22 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
     var sig : bltl_signature;
     
     t <- P.clock();
-    if(act_time <= t < act_time + rounds){
-      i <- t - act_time;
+    if(pk.`1 <= t < pk.`1 + pk.`2){
+      i <- t - pk.`1;
       e <- EndO.genEnd(i); 
-      mm <- (m, macGen mac_k m); 
-      r_i <- nth witness xss i; 
+      mm <- (m, macGen sk.`2 m); 
+      r_i <- nth witness sk.`3 i; 
      
       (* send request to Q *)
       (t', c, st) <@ Q.processQuery(head witness r_i, mm);
-    if(t < t' <= t + max_lag /\ v = true){
+    if(t < t' <= t + pk.`3 /\ v = true){
       dg <@ P.get(t');
-      v <- verifyTs (oget dg) c (digestQ pkQ (head witness r_i, st)) /\ mm \in st /\ forall mm, mm \in st => macVer mac_k mm.`2 mm.`1 = true; 
+      v <- verifyTs (oget dg) c (digestQ sk.`1 (head witness r_i, st)) /\ mm \in st /\ valid_mac st; 
     }
     
     l <- t'-t;
-    q <- digestQ pkQ (head witness r_i, st);
-    z <- proofQ pkQ (head witness r_i, st) mm; 
+    q <- digestQ sk.`1 (head witness r_i, st);
+    z <- proofQ sk.`1 (head witness r_i, st) mm; 
     sig <- (e, r_i, i, l, head witness r_i, nth witness r_i l, c, q, z);   
     }
 
@@ -306,29 +311,28 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
   
     }
 
-  proc verify(m : message, sig : bltl_signature, mac_k : macKey) = {
+  proc verify(m : message, sig : bltl_signature, pk : bltl_pk, sk : bltl_sk) : bool = {
     var valid_e, v, v', ver : bool;
     var t, t' : Time;
     var d : digest option;
     
     valid_e <- EndO.verEnd(sig.`1, sig.`2, sig.`3);
 
-    if(0 < sig.`4 <= max_lag){  (* 0 < l <= L*)
-      t <- act_time + sig.`3;   (* t = C + i *)
-      t' <- t + max_lag;        (* t' = t + l *)
+    if(0 < sig.`4 <= pk.`3){  (* 0 < l <= L*)
+      t <- pk.`1 + sig.`3;   (* t = C + i *)
+      t' <- t + sig.`4;        (* t' = t + l *)
     }
  
-    if(act_time < t < act_time + rounds){  (* C < t < C + E*)
+    if(pk.`1 < t < pk.`1 + pk.`2){  (* C < t < C + E *)
       if(nth witness sig.`2 1 = H sig.`5 /\ nth witness sig.`2  sig.`4 = H sig.`6){
         d <- P.get(t');
-        if (v = true /\ v' = true){
-          v <- verifyTs (oget d) sig.`7 sig.`8;
-          v' <- verifyQ pkQ sig.`8 sig.`9 (m, macGen mac_k m);
-        }
+        v <- verifyTs (oget d) sig.`7 sig.`8;
+        v' <- verifyQ sk.`1 sig.`8 sig.`9 (m, macGen sk.`2 m);
       }
     }
-  
-   (* return valid_e /\ ... = true;  ?? *)
+
+  return valid_e /\ v /\ v' = true; 
+ 
   }
     
 }.
