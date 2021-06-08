@@ -154,8 +154,11 @@ axiom certByTag_prop1 : forall (rl : (tag * data) list) t d (c : cert),
 axiom correctTs : forall (rl : (tag * data) list, d : data, c : cert, t : tag), 
   (t, c) \inl (certTs rl) => verifyTs (digestTs rl) (certByTag t (certTs rl)) (t, (dataByTag t rl)) = true.
 
+module type TS = {
+   proc processQuery (ql : (tag * data) list, t' : Time) : Time * (tag * cert) list
+}.
 
-module Ts  = {
+module Ts : TS = {
 
   proc processQuery(ql : (tag * data) list, t' : Time) : Time * (tag * cert) list = {
     var cs : (tag * cert) list; 
@@ -200,7 +203,7 @@ module type Qt = {
    proc processQuery (t : tag, m : message_macced) : Time * cert * message_macced list
 }.
 
-module Q (A : AdvQ) = {
+module Q (A : AdvQ, Ts : TS) : Qt = {
 
   var pk : acc_pkey
 
@@ -243,13 +246,14 @@ axiom keygen_r : forall xss i j,
 
 type bit_string = int.
 op H : bit_string -> bit_string. 
-op valid_mac : message_macced list -> bool.
+op valid_mac : message_macced list -> macKey -> bool.
 axiom valid_mac_1 : forall (mm : message_macced) xs k, mm \inl xs => macVer k mm.`2 mm.`1 = true.
 
 clone export Endorsements as E.
+
 type bltl_signature = endorsement * end_msg * Time * Time * int * int * cert * (tag * data) * Proof.
 type bltl_sk = acc_pkey * macKey * end_msg list.
-type bltl_pk = int * int * int. 
+type bltl_pk = int * int * int.
 
 (* BLTL Scheme *)    
 module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
@@ -295,15 +299,17 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
      
       (* send request to Q *)
       (t', c, st) <@ Q.processQuery(head witness r_i, mm);
-    if(t < t' <= t + pk.`3 /\ v = true){
+    if(t < t' <= t + pk.`3){
       dg <@ P.get(t');
-      v <- verifyTs (oget dg) c (digestQ sk.`1 (head witness r_i, st)) /\ mm \in st /\ valid_mac st; 
+      v <- verifyTs (oget dg) c (digestQ sk.`1 (head witness r_i, st)) /\ mm \in st /\ valid_mac st sk.`2; 
     }
     
+    if(v = true){
     l <- t'-t;
     q <- digestQ sk.`1 (head witness r_i, st);
     z <- proofQ sk.`1 (head witness r_i, st) mm; 
     sig <- (e, r_i, i, l, head witness r_i, nth witness r_i l, c, q, z);   
+    }
     }
 
     return sig;
@@ -336,3 +342,27 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
   }
     
 }.
+
+
+module BLTLCorrect = {
+
+  (* module BLTL = BLTLScheme(EndOracle, Q) *)
+
+  proc main(m : message, act_time : int, rounds : int, max_lag : int) : bool = {
+    var sk, pk, sig, b;
+
+    (sk, pk) <@ BLTLScheme.keygen(act_time, rounds, max_lag);
+    sig <@ BLTLScheme.sign(m, sk, pk);
+    b <@ BLTLScheme.verify(m, sig, pk, sk);
+
+    return b;
+  }
+}.
+
+
+(*
+lemma bltl_correctness &m m :
+  ...
+  Pr[BLTLCorrect.main(m) @ &m : res] = 1%r.
+proof. 
+*)
