@@ -348,25 +348,32 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
 }.
 
 
-module BLTLCorrect = {
 
-(*  module BLTL = BLTLScheme(EndOracle, Q) *)
+module BLTLCorrect(A : AdvQ) = {
+  module Q = Q(A)
+  module BLTL = BLTLScheme(EndOracle, Q)
 
   proc main(m : message, act_time : int, rounds : int, max_lag : int) : bool = {
     var sk, pk, sig, b;
 
-    (sk, pk) <@ BLTLScheme.keygen(act_time, rounds, max_lag);
-    sig <@ BLTLScheme.sign(m, sk, pk);
-    b <@ BLTLScheme.verify(m, sig, pk, sk);
+    (sk, pk) <@ BLTL.keygen(act_time, rounds, max_lag);
+    (* properpty about sk and pk: P (sk , pk) *)
+
+    sig <@ BLTL.sign(sk, m);
+    b <@ BLTL.verify(pk, sig, m);
 
     return b;
   }
 }.
 
 
-(*
-lemma bltl_correctness &m m :
-  ...
-  Pr[BLTLCorrect.main(m) @ &m : res] = 1%r.
+section.
+
+declare module A : AdvQ.
+
+lemma bltl_keygen : phoare[BLTLScheme(EndOracle, Q(A)).keygen : true (* rounds, max_lag, act_time are all positive *)  ==> EndOracle.pk = EndOracle.pk (* (pkE, skE) \in endKeyGen  *) ] = 1%r.
 proof. 
-*)
+
+lemma bltl_correctness &m msg : Pr[BLTLCorrect(A).main(msg) @ &m : res ] = 1%r.
+proof. 
+
