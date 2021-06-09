@@ -132,7 +132,7 @@ module P = {
   }
 }.
 
-type tag = int. (* to do : clone instead *)
+type tag = int.
 type data, cert.
 type message_macced = message * mac.
 
@@ -203,7 +203,7 @@ module type Qt = {
    proc processQuery (t : tag, m : message_macced) : Time * cert * message_macced list
 }.
 
-module Q (A : AdvQ, Ts : TS) : Qt = {
+module Q (A : AdvQ) : Qt = {
 
   var pk : acc_pkey
 
@@ -337,7 +337,7 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
       }
     }
 
-  return valid_e /\ v /\ v' = true; 
+  return valid_e /\ v /\ v'; 
  
   }
     
@@ -346,7 +346,7 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
 
 module BLTLCorrect = {
 
-  (* module BLTL = BLTLScheme(EndOracle, Q) *)
+  module BLTL = BLTLScheme(EndOracle, Q) 
 
   proc main(m : message, act_time : int, rounds : int, max_lag : int) : bool = {
     var sk, pk, sig, b;
