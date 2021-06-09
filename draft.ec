@@ -3,10 +3,10 @@ pragma Goals : printall.
 require import AllCore List Int Bool Distr SmtMap DInterval.
 
 
-
 (* MAC *)
 
-type macKey, mac, message.
+type macKey, mac.
+type message = int.
 
 op mKeygen : {macKey distr | is_lossless mKeygen} as mKeygen_ll. 
 op macGen : macKey -> message -> mac.
@@ -105,7 +105,7 @@ end Endorsements.
 type Time = int.
 type digest.
 
-op tdistr : int distr. 
+op tdistr : {int distr | is_lossless tdistr} as tdistr_ll. 
  
 module P = {
  
@@ -250,12 +250,13 @@ axiom keygen_r : forall xss i j,
 
 type bit_string = int.
 op H : bit_string -> bit_string. 
+
 op valid_mac : message_macced list -> macKey -> bool.
 axiom valid_mac_1 : forall (mm : message_macced) xs k, mm \inl xs => macVer k mm.`2 mm.`1 = true.
 
 clone export Endorsements as E.
 
-type bltl_signature = endorsement * end_msg * Time * Time * int * int * cert * (tag * data) * Proof.
+type bltl_signature = endorsement * end_msg * Time * Time * int * int * cert * (tag * data) * Proof * mac.
 type bltl_sk = acc_pkey * macKey * end_msg list.
 type bltl_pk = int * int * int.
 
@@ -298,7 +299,7 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
     if(pk.`1 <= t < pk.`1 + pk.`2){
       i <- t - pk.`1;
       e <- EndO.genEnd(i); 
-      mm <- (m, macGen sk.`2 m); 
+      mm <- (H m, macGen sk.`2 (H m)); 
       r_i <- nth witness sk.`3 i; 
      
       (* send request to Q *)
@@ -312,12 +313,11 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
     l <- t'-t;
     q <- digestQ sk.`1 (head witness r_i, st);
     z <- proofQ sk.`1 (head witness r_i, st) mm; 
-    sig <- (e, r_i, i, l, head witness r_i, nth witness r_i l, c, q, z);   
+    sig <- (e, r_i, i, l, head witness r_i, nth witness r_i l, c, q, z, mm.`2);   
     }
     }
 
     return sig;
- 
   
     }
 
@@ -337,7 +337,7 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
       if(nth witness sig.`2 1 = H sig.`5 /\ nth witness sig.`2  sig.`4 = H sig.`6){
         d <- P.get(t');
         v <- verifyTs (oget d) sig.`7 sig.`8;
-        v' <- verifyQ sk.`1 sig.`8 sig.`9 (m, macGen sk.`2 m);
+        v' <- verifyQ sk.`1 sig.`8 sig.`9 (H m, sig.`10);
       }
     }
 
