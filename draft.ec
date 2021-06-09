@@ -357,7 +357,7 @@ module BLTLCorrect = {
 
     (sk, pk) <@ BLTLScheme.keygen(act_time, rounds, max_lag);
     sig <@ BLTLScheme.sign(m, sk, pk);
-    b <@ BLTLScheme.verify(m, sig, pk, sk);
+    b <@ BLTLScheme.verify(m, sig, pk);
 
     return b;
   }
