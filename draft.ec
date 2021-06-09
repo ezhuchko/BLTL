@@ -8,7 +8,7 @@ require import AllCore List Int Bool Distr SmtMap DInterval.
 
 type macKey, mac, message.
 
-op mKeygen : macKey distr. 
+op mKeygen : {macKey distr | is_lossless mKeygen} as mKeygen_ll. 
 op macGen : macKey -> message -> mac.
 op macVer : macKey -> mac -> message -> bool. 
 
@@ -27,6 +27,8 @@ type end_msg = int list.
 op endKeygen : end_msg list -> (skey * pkey) distr.
 op endGen : skey -> end_msg list -> int -> endorsement.
 op endVer : pkey -> endorsement -> end_msg -> int -> bool.
+
+axiom endKeygen_ll : forall xs, is_lossless (endKeygen xs).
 
 axiom endCorrect : forall pk sk i xs m, 
  (sk, pk) \in endKeygen xs => 1 <= i <= size xs => endVer pk (endGen sk xs i) m i = true. 
@@ -74,7 +76,8 @@ module EndCorrect = {
   }
 }.
 
-(* islossless EndCorrect.main => *)
+print dinterE.
+
 (*
 lemma EndOracleCorrect &m ml: 
   Pr[ EndCorrect.main(ml) @ &m : res ] = 1%r.  
@@ -88,11 +91,11 @@ have q : 0 <= z. smt.
 smt.
 
 rnd (fun (skpk : skey * pkey) => true). wp.
-skip. progress.   
+skip. progress.     
 admit.
 admit.
-admitted.*)
-
+admitted.
+*)
 
 end Endorsements.
 
@@ -175,7 +178,7 @@ module Ts : TS = {
 
 type acc_pkey, Proof.
 
-op accKey : acc_pkey distr.
+op accKey : {acc_pkey distr | is_lossless accKey} as accKey_ll.
 op digestQ : acc_pkey -> tag * (message_macced list) -> tag * data. 
 op proofQ : acc_pkey -> tag * (message_macced list) -> message_macced -> Proof.
 op verifyQ : acc_pkey -> tag * data -> Proof -> message_macced -> bool.
@@ -240,6 +243,7 @@ module Q (A : AdvQ) : Qt = {
 (* Key gen *)
 
 op paramDistr : int -> int -> (int list) list distr.
+axiom paramDistr_ll : forall i j, is_lossless (paramDistr i j).
 
 axiom keygen_r : forall xss i j, 
   xss \in paramDistr i j => size xss = i /\ (forall xs, xs \in xss => size xs = j).  (* valid length of xss *)
@@ -346,7 +350,7 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
 
 module BLTLCorrect = {
 
-  module BLTL = BLTLScheme(EndOracle, Q) 
+(*  module BLTL = BLTLScheme(EndOracle, Q) *)
 
   proc main(m : message, act_time : int, rounds : int, max_lag : int) : bool = {
     var sk, pk, sig, b;
