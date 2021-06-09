@@ -257,8 +257,8 @@ axiom valid_mac_1 : forall (mm : message_macced) xs k, mm \inl xs => macVer k mm
 clone export Endorsements as E.
 
 type bltl_signature = endorsement * end_msg * Time * Time * int * int * cert * (tag * data) * Proof * mac.
-type bltl_sk = acc_pkey * macKey * end_msg list.
-type bltl_pk = int * int * int.
+type bltl_sk = macKey * end_msg list.
+type bltl_pk = int * int * int * acc_pkey.
 
 (* BLTL Scheme *)    
 module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
@@ -276,8 +276,8 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
     EndO.init(hashed_xss);
     pkQ <- Q.init();
     
-    sk <- (pkQ, mac_k, xss);
-    pk <- (act_time, rounds, max_lag);
+    sk <- (mac_k, xss);
+    pk <- (act_time, rounds, max_lag, pkQ);
     return (sk, pk); 
   }
 
@@ -299,20 +299,20 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
     if(pk.`1 <= t < pk.`1 + pk.`2){
       i <- t - pk.`1;
       e <- EndO.genEnd(i); 
-      mm <- (H m, macGen sk.`2 (H m)); 
-      r_i <- nth witness sk.`3 i; 
+      mm <- (H m, macGen sk.`1 (H m)); 
+      r_i <- nth witness sk.`2 i; 
      
       (* send request to Q *)
       (t', c, st) <@ Q.processQuery(head witness r_i, mm);
     if(t < t' <= t + pk.`3){
       dg <@ P.get(t');
-      v <- verifyTs (oget dg) c (digestQ sk.`1 (head witness r_i, st)) /\ mm \in st /\ valid_mac st sk.`2; 
+      v <- verifyTs (oget dg) c (digestQ pk.`4 (head witness r_i, st)) /\ mm \in st /\ valid_mac st sk.`1; 
     }
     
     if(v = true){
-    l <- t'-t;
-    q <- digestQ sk.`1 (head witness r_i, st);
-    z <- proofQ sk.`1 (head witness r_i, st) mm; 
+    l <- t'- t;
+    q <- digestQ pk.`4 (head witness r_i, st);
+    z <- proofQ pk.`4 (head witness r_i, st) mm; 
     sig <- (e, r_i, i, l, head witness r_i, nth witness r_i l, c, q, z, mm.`2);   
     }
     }
@@ -321,7 +321,7 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
   
     }
 
-  proc verify(m : message, sig : bltl_signature, pk : bltl_pk, sk : bltl_sk) : bool = {
+  proc verify(m : message, sig : bltl_signature, pk : bltl_pk) : bool = {
     var valid_e, v, v', ver : bool;
     var t, t' : Time;
     var d : digest option;
@@ -337,7 +337,7 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
       if(nth witness sig.`2 1 = H sig.`5 /\ nth witness sig.`2  sig.`4 = H sig.`6){
         d <- P.get(t');
         v <- verifyTs (oget d) sig.`7 sig.`8;
-        v' <- verifyQ sk.`1 sig.`8 sig.`9 (H m, sig.`10);
+        v' <- verifyQ pk.`4 sig.`8 sig.`9 (H m, sig.`10);
       }
     }
 
