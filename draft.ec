@@ -300,5 +300,18 @@ section.
 
 declare module A : AdvQ.
 
-lemma bltl_keygen : phoare[BLTLScheme(Q(A)).keygen : true  (* rounds, max_lag, act_time are all positive *)  ==> (* (pkE, skE) \in endKeyGen  *) ] = 1%r.
-proof. 
+lemma bltl_keygen : 
+(*  forall xs, is_lossless (endKeygen xs) => 
+  forall act_time rounds, is_lossless (paramDistr act_time rounds) => is_lossless mKeygen => *)
+  phoare[BLTLScheme(Q(A)).keygen : 0 < rounds /\ 0 < max_lag /\ 0 < act_time ==> forall pkE skE xs, (pkE, skE) \in endKeygen xs] = 1%r.
+proof. (* move => ? le ?? lp lm. *)
+proc. wp. progress. inline*. 
+seq 1 : true. rnd. skip. 
+admit. 
+rnd. skip. 
+progress.
+admit. 
+
+
+(*  pkQ - formulate the problem and whether there is an attack *)
+(* separate lemma for sign and verify, maybe keygen and sign together *)
