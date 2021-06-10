@@ -16,89 +16,19 @@ op macVer : macKey -> mac -> message -> bool.
 axiom macCorrect : forall k m,  
   k \in mKeygen => macVer k (macGen k m) m = true. 
 
+(* Endorsement Scheme *)
 
-(* Endorsement Oracle *) 
-
-abstract theory Endorsements.
-
-type pkey, skey, endorsement.
+type end_pkey, end_skey, endorsement.
 type end_msg = int list.
 
-op endKeygen : end_msg list -> (skey * pkey) distr.
-op endGen : skey -> end_msg list -> int -> endorsement.
-op endVer : pkey -> endorsement -> end_msg -> int -> bool.
+op endKeygen : end_msg list -> (end_pkey * end_skey) distr.
+op endGen : end_skey -> end_msg list -> int -> endorsement.
+op endVer : end_pkey -> endorsement -> end_msg -> int -> bool.
 
 axiom endKeygen_ll : forall xs, is_lossless (endKeygen xs).
 
 axiom endCorrect : forall pk sk i xs m, 
- (sk, pk) \in endKeygen xs => 1 <= i <= size xs => endVer pk (endGen sk xs i) m i = true. 
-
-module type EndOracleT = {
-  proc *init(xs : end_msg list) : skey * pkey
-  proc genEnd(i : int) : endorsement 
-  proc verEnd(e : endorsement, m : end_msg, i : int) : bool
-}.
-
-module EndOracle : EndOracleT = {
-
-  var pk : pkey
-  var sk : skey
-  var xs : end_msg list 
-
-  proc init(xsp : end_msg list) : skey * pkey = {
-  (sk, pk) <$ endKeygen xsp;
-  xs <- xsp;
-  return (sk, pk);
-  }
-
-  proc genEnd(i : int) : endorsement = {
-    return endGen sk xs i;
-  }
-
-  proc verEnd(e : endorsement, m : end_msg, i : int) : bool = {
-    return endVer pk e m i;
-  }
-
-}. 
-
-module EndCorrect = {
-
-  proc main(ml : end_msg list) = {
-    var e : endorsement;
-    var b : bool;
-    var x : int;
-
-    x <$ [0 .. size ml];
-    EndOracle.init(ml);
-    e <- EndOracle.genEnd(x);
-    b <- EndOracle.verEnd(e, nth witness ml x, x);
-    return b;
-  }
-}.
-
-print dinterE.
-
-(*
-lemma EndOracleCorrect &m ml: 
-  Pr[ EndCorrect.main(ml) @ &m : res ] = 1%r.  
-proof. byphoare (_ : ml = arg ==> _). proc. inline*. wp. 
-seq 1 : (0 <= x <= size ml).
-rnd. skip. progress.
-rnd. skip. progress. 
-
-pose z := size ml{hr}. 
-have q : 0 <= z. smt.
-smt.
-
-rnd (fun (skpk : skey * pkey) => true). wp.
-skip. progress.     
-admit.
-admit.
-admitted.
-*)
-
-end Endorsements.
-
+ (pk, sk) \in endKeygen xs => 1 <= i <= size xs => endVer pk (endGen sk xs i) m i = true. 
 
 (* Publisher *)
 
@@ -138,8 +68,6 @@ module P = {
 type tag = int.
 type data, cert.
 type message_macced = message * mac.
-
-print List.
 abbrev (\inl) ['a] (z : 'a) (s : 'a list) : bool = mem s z.
 
 (* Tag-commitment scheme *)
@@ -254,35 +182,37 @@ op H : bit_string -> bit_string.
 op valid_mac : message_macced list -> macKey -> bool.
 axiom valid_mac_1 : forall (mm : message_macced) xs k, mm \inl xs => macVer k mm.`2 mm.`1 = true.
 
-clone export Endorsements as E.
+(* clone export Endorsements as E. *)
 
 type bltl_signature = endorsement * end_msg * Time * Time * int * int * cert * (tag * data) * Proof * mac.
-type bltl_sk = macKey * end_msg list.
-type bltl_pk = int * int * int * acc_pkey.
+type bltl_sk = macKey * end_skey * end_msg list * acc_pkey * int * int * int.
+type bltl_pk = end_pkey * int * int * int * acc_pkey.
 
 (* BLTL Scheme *)    
-module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
+module BLTLScheme(Q : Qt) = {
    
   proc keygen(act_time : int, rounds : int, max_lag : int) : bltl_sk * bltl_pk  = {  
     var xss, hashed_xss : end_msg list;
     var mac_k : macKey;
     var pkQ : acc_pkey;
+    var pk_e : end_pkey;
+    var sk_e : end_skey;
     var sk : bltl_sk;
     var pk : bltl_pk;
         
     mac_k <$ mKeygen;
     xss <$ paramDistr act_time rounds;  (* sk list r *)
     hashed_xss <- map(fun xs => List.map (fun x => H x) xs) xss; (* pk list M *) 
-    EndO.init(hashed_xss);
+    (pk_e, sk_e) <$ endKeygen(hashed_xss);
     pkQ <- Q.init();
     
-    sk <- (mac_k, xss);
-    pk <- (act_time, rounds, max_lag, pkQ);
+    sk <- (mac_k, sk_e, xss, pkQ, act_time, rounds, max_lag);
+    pk <- (pk_e, act_time, rounds, max_lag, pkQ);
     return (sk, pk); 
   }
 
 (* Client *)
-  proc sign(m : message, sk : bltl_sk, pk : bltl_pk) : bltl_signature = {
+  proc sign(sk : bltl_sk, m : message) : bltl_signature = {
     var t, i, t', l : Time;
     var e : endorsement;
     var mm : message_macced;
@@ -296,24 +226,24 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
     var sig : bltl_signature;
     
     t <- P.clock();
-    if(pk.`1 <= t < pk.`1 + pk.`2){
-      i <- t - pk.`1;
-      e <- EndO.genEnd(i); 
+    if(sk.`5 <= t < sk.`5 + sk.`6){ (* C <= t < C + E *)
+      i <- t - sk.`5; (* i = t - C *)
+      e <- endGen sk.`2 sk.`3 i; 
       mm <- (H m, macGen sk.`1 (H m)); 
-      r_i <- nth witness sk.`2 i; 
+      r_i <- nth witness sk.`3 i; 
      
       (* send request to Q *)
       (t', c, st) <@ Q.processQuery(head witness r_i, mm);
-    if(t < t' <= t + pk.`3){
+    if(t < t' <= t + sk.`7){  (* t < t' <= t + L *)
       dg <@ P.get(t');
-      v <- verifyTs (oget dg) c (digestQ pk.`4 (head witness r_i, st)) /\ mm \in st /\ valid_mac st sk.`1; 
+      v <- verifyTs (oget dg) c (digestQ sk.`4 (head witness r_i, st)) /\ mm \in st /\ valid_mac st sk.`1; 
     }
     
     if(v = true){
-    l <- t'- t;
-    q <- digestQ pk.`4 (head witness r_i, st);
-    z <- proofQ pk.`4 (head witness r_i, st) mm; 
-    sig <- (e, r_i, i, l, head witness r_i, nth witness r_i l, c, q, z, mm.`2);   
+      l <- t'- t;
+      q <- digestQ sk.`4 (head witness r_i, st);
+      z <- proofQ sk.`4 (head witness r_i, st) mm; 
+      sig <- (e, r_i, i, l, head witness r_i, nth witness r_i l, c, q, z, mm.`2);   
     }
     }
 
@@ -321,23 +251,23 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
   
     }
 
-  proc verify(m : message, sig : bltl_signature, pk : bltl_pk) : bool = {
+  proc verify(pk : bltl_pk, sig : bltl_signature, m : message) : bool = {
     var valid_e, v, v', ver : bool;
     var t, t' : Time;
     var d : digest option;
     
-    valid_e <- EndO.verEnd(sig.`1, sig.`2, sig.`3);
+    valid_e <- endVer pk.`1 sig.`1 sig.`2 sig.`3;
 
     if(0 < sig.`4 <= pk.`3){  (* 0 < l <= L*)
-      t <- pk.`1 + sig.`3;   (* t = C + i *)
+      t <- pk.`2 + sig.`3;   (* t = C + i *)
       t' <- t + sig.`4;        (* t' = t + l *)
     }
  
-    if(pk.`1 < t < pk.`1 + pk.`2){  (* C < t < C + E *)
-      if(nth witness sig.`2 1 = H sig.`5 /\ nth witness sig.`2  sig.`4 = H sig.`6){
+    if(pk.`2 < t < pk.`2 + pk.`3){  (* C < t < C + E *)
+      if(nth witness sig.`2 1 = H sig.`5 /\ nth witness sig.`2  sig.`4 = H sig.`6){  (* w_0 == H(a) /\ w_l == H(r) *)
         d <- P.get(t');
-        v <- verifyTs (oget d) sig.`7 sig.`8;
-        v' <- verifyQ pk.`4 sig.`8 sig.`9 (H m, sig.`10);
+        v <- verifyTs (oget d) sig.`7 sig.`8; (* V(d,c,(a,q)) *)
+        v' <- verifyQ pk.`5 sig.`8 sig.`9 (H m, sig.`10); (* V(q,z,h(m)||p) *)
       }
     }
 
@@ -348,25 +278,18 @@ module BLTLScheme(EndO : EndOracleT, Q : Qt) = {
 }.
 
 
-
 module BLTLCorrect(A : AdvQ) = {
   module Q = Q(A)
-  module BLTL = BLTLScheme(EndOracle, Q)
+  module BLTL = BLTLScheme(Q)
 
   proc main(m : message, act_time : int, rounds : int, max_lag : int) : bool = {
     var sk, pk, sig, b;
 
-<<<<<<< HEAD
     (sk, pk) <@ BLTL.keygen(act_time, rounds, max_lag);
-    (* properpty about sk and pk: P (sk , pk) *)
+    (* property about sk and pk: P (sk , pk) *)
 
     sig <@ BLTL.sign(sk, m);
     b <@ BLTL.verify(pk, sig, m);
-=======
-    (sk, pk) <@ BLTLScheme.keygen(act_time, rounds, max_lag);
-    sig <@ BLTLScheme.sign(m, sk, pk);
-    b <@ BLTLScheme.verify(m, sig, pk);
->>>>>>> 106f9f5a56c7120e2eb2df00f38f2afaa6499518
 
     return b;
   }
@@ -377,9 +300,5 @@ section.
 
 declare module A : AdvQ.
 
-lemma bltl_keygen : phoare[BLTLScheme(EndOracle, Q(A)).keygen : true (* rounds, max_lag, act_time are all positive *)  ==> EndOracle.pk = EndOracle.pk (* (pkE, skE) \in endKeyGen  *) ] = 1%r.
+lemma bltl_keygen : phoare[BLTLScheme(Q(A)).keygen : true  (* rounds, max_lag, act_time are all positive *)  ==> (* (pkE, skE) \in endKeyGen  *) ] = 1%r.
 proof. 
-
-lemma bltl_correctness &m msg : Pr[BLTLCorrect(A).main(msg) @ &m : res ] = 1%r.
-proof. 
-
