@@ -295,15 +295,17 @@ module BLTLCorrect(A : AdvQ) = {
   }
 }.
 
-
 section.
 
-declare module A : AdvQ.
+(* define adversary *)
+declare module A : Qt.
+axiom Ai_ll : islossless A.init.
+axiom Ap_ll : islossless A.processQuery.
 
 lemma bltl_keygen : 
 (*  forall xs, is_lossless (endKeygen xs) => 
-  forall act_time rounds, is_lossless (paramDistr act_time rounds) => is_lossless mKeygen => *)
-  phoare[BLTLScheme(Q(A)).keygen : 0 < rounds /\ 0 < max_lag /\ 0 < act_time ==> forall pkE skE xs, (pkE, skE) \in endKeygen xs] = 1%r.
+  forall act_time rounds, is_lossless (paramDistr act_time rounds) => is_lossless mKeygen => is_lossless accKey *)
+phoare[BLTLScheme(Q(A)).keygen : 0 < rounds /\ 0 < max_lag /\ 0 < act_time ==> forall pkE skE xs, (pkE, skE) \in endKeygen xs /\ forall mk, mk \in mKeygen] = 1%r.
 proof. (* move => ? le ?? lp lm. *)
 proc. wp. progress. inline*. 
 seq 1 : true. rnd. skip. 
@@ -311,7 +313,9 @@ admit.
 rnd. skip. 
 progress.
 admit. 
-
+progress.
+progress.
+qed.
 
 (*  pkQ - formulate the problem and whether there is an attack *)
 (* separate lemma for sign and verify, maybe keygen and sign together *)
