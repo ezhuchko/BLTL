@@ -295,10 +295,10 @@ section.
 (* define adversary *)
 declare module A : AdvQ.
 
-lemma bltl_keygen :
-phoare[BLTLScheme(Q(A)).keygen : 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time ==> forall xs, (res.`2.`1, res.`1.`2) \in endKeygen xs /\ res.`1.`1 \in mKeygen /\ res.`1.`4 = res.`2.`5 /\ res.`1.`4 \in accKey] = 1%r.
-proof. 
-proc. wp. progress. inline*. 
+lemma bltl_keygen : forall xs,
+phoare[BLTLScheme(Q(A)).keygen : 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time ==> (res.`2.`1, res.`1.`2) \in endKeygen xs /\ res.`1.`1 \in mKeygen /\ res.`1.`4 = res.`2.`5 /\ res.`1.`4 \in accKey] = 1%r.
+proof.  move => xs.
+proc. simplify. wp. progress. inline*. 
 seq 1 : true (* mac_k \in mKeygen *). rnd. skip. 
 progress. rnd. skip. progress. rewrite mKeygen_ll. trivial.
 seq 1 : (size xss = act_time). rnd. skip. progress. rnd. progress. skip. progress. 
