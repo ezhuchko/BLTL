@@ -182,8 +182,6 @@ op H : bit_string -> bit_string.
 op valid_mac : message_macced list -> macKey -> bool.
 axiom valid_mac_1 : forall (mm : message_macced) xs k, mm \inl xs => macVer k mm.`2 mm.`1 = true.
 
-(* clone export Endorsements as E. *)
-
 type bltl_signature = endorsement * end_msg * Time * Time * int * int * cert * (tag * data) * Proof * mac.
 type bltl_sk = macKey * end_skey * end_msg list * acc_pkey * int * int * int.
 type bltl_pk = end_pkey * int * int * int * acc_pkey.
@@ -191,14 +189,12 @@ type bltl_pk = end_pkey * int * int * int * acc_pkey.
 (* BLTL Scheme *)    
 module BLTLScheme(Q : Qt) = {
    
-  proc keygen(act_time : int, rounds : int, max_lag : int) : bltl_sk * bltl_pk  = {  
+  proc keygen(act_time : int, rounds : int, max_lag : int) : bltl_sk * bltl_pk = {  
     var xss, hashed_xss : end_msg list;
     var mac_k : macKey;
     var pkQ : acc_pkey;
     var pk_e : end_pkey;
     var sk_e : end_skey;
-    var sk : bltl_sk;
-    var pk : bltl_pk;
         
     mac_k <$ mKeygen;
     xss <$ paramDistr act_time rounds;  (* sk list r *)
@@ -206,9 +202,7 @@ module BLTLScheme(Q : Qt) = {
     (pk_e, sk_e) <$ endKeygen(hashed_xss);
     pkQ <- Q.init();
     
-    sk <- (mac_k, sk_e, xss, pkQ, act_time, rounds, max_lag);
-    pk <- (pk_e, act_time, rounds, max_lag, pkQ);
-    return (sk, pk); 
+    return ((mac_k, sk_e, xss, pkQ, act_time, rounds, max_lag), (pk_e, act_time, rounds, max_lag, pkQ)); 
   }
 
 (* Client *)
@@ -302,38 +296,10 @@ section.
 declare module A : AdvQ.
 
 lemma bltl_keygen :
-phoare[BLTLScheme(Q(A)).keygen : 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time ==> forall pkE skE xs, (pkE, skE) \in endKeygen xs /\ forall mk, mk \in mKeygen] = 1%r.
+phoare[BLTLScheme(Q(A)).keygen : 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time ==> forall xs, (res.`2.`1, res.`1.`2) \in endKeygen xs /\ res.`1.`1 \in mKeygen /\ res.`1.`4 = res.`2.`5 /\ res.`1.`4 \in accKey] = 1%r.
 proof. 
 proc. wp. progress. inline*. 
 seq 1 : true (* mac_k \in mKeygen *). rnd. skip. 
 progress. rnd. skip. progress. rewrite mKeygen_ll. trivial.
-seq 1 : (size xss = act_time). rnd. skip. progress. rnd. progress. skip. progress. .
-
-
-
-
-rewrite paramDistr_ll. trivial.
-
-
-
-(* (size xss = act_time /\ size xs = rounds) *)
-(* (size hashed_xss = act_time /\ size hashed_xs = rounds) *)
-
-
-
-lemma bltl_sign :
-phoare[BLTLScheme(Q(A)).sign : ....] = 1%r.
-proof.
-
-
-lemma bltl_verify :
-phoare[BLTLScheme(Q(A)).verify : ....] = 1%r.
-proof.
-
-
-
-
-(*  pkQ - formulate the problem and whether there is an attack *)
-(* separate lemma for sign and verify, maybe keygen and sign together *)
-
+seq 1 : (size xss = act_time). rnd. skip. progress. rnd. progress. skip. progress. 
 
