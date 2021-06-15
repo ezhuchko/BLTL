@@ -228,7 +228,7 @@ module BLTLScheme(Q : Qt) = {
     t <- P.clock();
     if(sk.`5 <= t < sk.`5 + sk.`6){ (* C <= t < C + E *)
       i <- t - sk.`5; (* i = t - C *)
-      e <- endGen sk.`2 sk.`3 i; 
+      e <- endGen sk.`2 (map(fun xs => List.map (fun x => H x) xs) (sk.`3)) i; 
       mm <- (H m, macGen sk.`1 (H m)); 
       r_i <- nth witness sk.`3 i; 
      
@@ -295,27 +295,45 @@ module BLTLCorrect(A : AdvQ) = {
   }
 }.
 
+
 section.
 
 (* define adversary *)
-declare module A : Qt.
-axiom Ai_ll : islossless A.init.
-axiom Ap_ll : islossless A.processQuery.
+declare module A : AdvQ.
 
-lemma bltl_keygen : 
-(*  forall xs, is_lossless (endKeygen xs) => 
-  forall act_time rounds, is_lossless (paramDistr act_time rounds) => is_lossless mKeygen => is_lossless accKey *)
-phoare[BLTLScheme(Q(A)).keygen : 0 < rounds /\ 0 < max_lag /\ 0 < act_time ==> forall pkE skE xs, (pkE, skE) \in endKeygen xs /\ forall mk, mk \in mKeygen] = 1%r.
-proof. (* move => ? le ?? lp lm. *)
+lemma bltl_keygen :
+phoare[BLTLScheme(Q(A)).keygen : 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time ==> forall pkE skE xs, (pkE, skE) \in endKeygen xs /\ forall mk, mk \in mKeygen] = 1%r.
+proof. 
 proc. wp. progress. inline*. 
-seq 1 : true. rnd. skip. 
-admit. 
-rnd. skip. 
-progress.
-admit. 
-progress.
-progress.
-qed.
+seq 1 : true (* mac_k \in mKeygen *). rnd. skip. 
+progress. rnd. skip. progress. rewrite mKeygen_ll. trivial.
+seq 1 : (size xss = act_time). rnd. skip. progress. rnd. progress. skip. progress. .
+
+
+
+
+rewrite paramDistr_ll. trivial.
+
+
+
+(* (size xss = act_time /\ size xs = rounds) *)
+(* (size hashed_xss = act_time /\ size hashed_xs = rounds) *)
+
+
+
+lemma bltl_sign :
+phoare[BLTLScheme(Q(A)).sign : ....] = 1%r.
+proof.
+
+
+lemma bltl_verify :
+phoare[BLTLScheme(Q(A)).verify : ....] = 1%r.
+proof.
+
+
+
 
 (*  pkQ - formulate the problem and whether there is an attack *)
 (* separate lemma for sign and verify, maybe keygen and sign together *)
+
+
