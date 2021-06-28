@@ -8,12 +8,13 @@ require import AllCore List Int Bool Distr SmtMap DInterval.
 type macKey, mac.
 type message = int.
 
-op mKeygen : {macKey distr | is_lossless mKeygen} as mKeygen_ll. 
+op mKeygen : macKey distr.
+axiom mKeygen_ll : is_lossless mKeygen. 
 op macGen : macKey -> message -> mac.
 op macVer : macKey -> mac -> message -> bool. 
 
 (* Correctness of MAC *)
-axiom macCorrect : forall k m,  
+axiom macCorrect k m:  
   k \in mKeygen => macVer k (macGen k m) m = true. 
 
 (* Endorsement Scheme *)
@@ -25,9 +26,8 @@ op endKeygen : end_msg list -> (end_pkey * end_skey) distr.
 op endGen : end_skey -> end_msg list -> int -> endorsement.
 op endVer : end_pkey -> endorsement -> end_msg -> int -> bool.
 
-axiom endKeygen_ll : forall xs, is_lossless (endKeygen xs).
-
-axiom endCorrect : forall pk sk i xs m, 
+axiom endKeygen_ll xs : is_lossless (endKeygen xs).
+axiom endCorrect pk sk i xs m: 
  (pk, sk) \in endKeygen xs => 1 <= i <= size xs => endVer pk (endGen sk xs i) m i = true. 
 
 (* Publisher *)
@@ -35,7 +35,8 @@ axiom endCorrect : forall pk sk i xs m,
 type Time = int.
 type digest.
 
-op tdistr : {int distr | is_lossless tdistr} as tdistr_ll. 
+op tdistr : int distr.
+axiom tdistr_ll : is_lossless tdistr. 
  
 module P = {
  
@@ -65,8 +66,8 @@ module P = {
   }
 }.
 
-type tag = int.
 type data, cert.
+type tag = int.
 type message_macced = message * mac.
 abbrev (\inl) ['a] (z : 'a) (s : 'a list) : bool = mem s z.
 
@@ -75,14 +76,13 @@ abbrev (\inl) ['a] (z : 'a) (s : 'a list) : bool = mem s z.
 op digestTs : (tag * data) list -> digest.
 op certTs : (tag * data) list -> (tag * cert) list.
 op verifyTs : digest -> cert -> (tag * data) -> bool.
-
 op certByTag : tag -> (tag * cert) list -> cert.
 op dataByTag : tag -> (tag * data) list -> data.
 
-axiom certByTag_prop1 : forall (rl : (tag * data) list) t d (c : cert), 
+axiom certByTag_prop1 (rl : (tag * data) list) t d (c : cert): 
   (t, d) \inl rl => (t, certByTag t (certTs rl)) \inl (certTs rl).
 
-axiom correctTs : forall (rl : (tag * data) list, d : data, c : cert, t : tag), 
+axiom correctTs (rl : (tag * data) list, d : data, c : cert, t : tag):
   (t, c) \inl (certTs rl) => verifyTs (digestTs rl) (certByTag t (certTs rl)) (t, (dataByTag t rl)) = true.
 
 module type TS = {
@@ -106,22 +106,22 @@ module Ts : TS = {
 
 type acc_pkey, Proof.
 
-op accKey : {acc_pkey distr | is_lossless accKey} as accKey_ll.
+op accKey : acc_pkey distr.
 op digestQ : acc_pkey -> tag * (message_macced list) -> tag * data. 
 op proofQ : acc_pkey -> tag * (message_macced list) -> message_macced -> Proof.
 op verifyQ : acc_pkey -> tag * data -> Proof -> message_macced -> bool.
-
 op convertQ : (tag * message_macced) list -> (tag * (message_macced list)) list.
-
-axiom convertQ_prop1 : forall xs t m,  
-  (t,m) \inl xs => exists (x : (tag * (message_macced list))), x \inl (convertQ xs) /\ x.`1 = t /\ m \inl x.`2.
-
 op getByTag : tag -> (tag * (message_macced list)) list -> (message_macced list).
 
-axiom convertQ_prop2 : forall xs t m x, 
+axiom accKey_ll : is_lossless accKey.
+
+axiom convertQ_prop1 xs t m: 
+  (t,m) \inl xs => exists (x : (tag * (message_macced list))), x \inl (convertQ xs) /\ x.`1 = t /\ m \inl x.`2.
+
+axiom convertQ_prop2 xs t m x:
   (t,m) \inl xs => getByTag t (convertQ xs) = x.
 
-axiom accumCorrect : forall (m : message_macced) (ml : tag * (message_macced list)) pk, 
+axiom accumCorrect (m : message_macced) (ml : tag * (message_macced list)) pk:
   pk \in accKey => m \inl ml.`2 => verifyQ pk (digestQ pk ml) (proofQ pk ml m) m = true. 
 
 
@@ -170,23 +170,27 @@ module Q (A : AdvQ) : Qt = {
 
 (* Key gen *)
 
-op paramDistr : int -> int -> (int list) list distr.
-axiom paramDistr_ll : forall i j, is_lossless (paramDistr i j).
+type bit_string = int.
 
-axiom keygen_r : forall xss i j, 
+op paramDistr : int -> int -> (int list) list distr.
+op H : bit_string -> bit_string. 
+op valid_mac : message_macced list -> macKey -> bool.
+
+axiom paramDistr_ll i j: is_lossless (paramDistr i j).
+
+axiom keygen_r xss i j:
   xss \in paramDistr i j => size xss = i /\ (forall xs, xs \in xss => size xs = j).  (* valid length of xss *)
 
-type bit_string = int.
-op H : bit_string -> bit_string. 
+axiom valid_mac_1 (mm : message_macced) xs k:
+  mm \inl xs => macVer k mm.`2 mm.`1 = true.
 
-op valid_mac : message_macced list -> macKey -> bool.
-axiom valid_mac_1 : forall (mm : message_macced) xs k, mm \inl xs => macVer k mm.`2 mm.`1 = true.
+(* BLTL Scheme *)   
 
 type bltl_signature = endorsement * end_msg * Time * Time * int * int * cert * (tag * data) * Proof * mac.
 type bltl_sk = macKey * end_skey * end_msg list * acc_pkey * int * int * int.
 type bltl_pk = end_pkey * int * int * int * acc_pkey.
 
-(* BLTL Scheme *)    
+ 
 module BLTLScheme(Q : Qt) = {
    
   proc keygen(act_time : int, rounds : int, max_lag : int) : bltl_sk * bltl_pk = {  
@@ -198,7 +202,7 @@ module BLTLScheme(Q : Qt) = {
         
     mac_k <$ mKeygen;
     xss <$ paramDistr act_time rounds;  (* sk list r *)
-    hashed_xss <- map(fun xs => List.map (fun x => H x) xs) xss; (* pk list M *) 
+    hashed_xss <- map(fun xs => map (fun x => H x) xs) xss; (* pk list M *) 
     (pk_e, sk_e) <$ endKeygen(hashed_xss);
     pkQ <- Q.init();
     
@@ -222,7 +226,7 @@ module BLTLScheme(Q : Qt) = {
     t <- P.clock();
     if(sk.`5 <= t < sk.`5 + sk.`6){ (* C <= t < C + E *)
       i <- t - sk.`5; (* i = t - C *)
-      e <- endGen sk.`2 (map(fun xs => List.map (fun x => H x) xs) (sk.`3)) i; 
+      e <- endGen sk.`2 (map (fun xs => map (fun x => H x) xs) (sk.`3)) i; 
       mm <- (H m, macGen sk.`1 (H m)); 
       r_i <- nth witness sk.`3 i; 
      
@@ -295,10 +299,37 @@ section.
 (* define adversary *)
 declare module A : AdvQ.
 
+print Distr.
+
 lemma bltl_keygen : forall xs,
 phoare[BLTLScheme(Q(A)).keygen : 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time ==> (res.`2.`1, res.`1.`2) \in endKeygen xs /\ res.`1.`1 \in mKeygen /\ res.`1.`4 = res.`2.`5 /\ res.`1.`4 \in accKey] = 1%r.
 proof. move => xs.
 proc. simplify. wp. progress. inline*. 
 seq 1 : (mac_k \in mKeygen /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time). rnd. skip. 
-progress. rnd. skip. progress. rewrite H H0 H1. simplify. rewrite muE. simplify. 
+progress. rnd. skip. progress. rewrite H H0 H1. simplify. 
+rewrite eq1_mu. apply mKeygen_ll. progress. trivial.
+seq 1 : (mac_k \in mKeygen /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ xss \in paramDistr act_time rounds). rnd. skip.
+progress. rnd. skip. progress. rewrite H H0 H1 H2. simplify. 
+rewrite eq1_mu. apply paramDistr_ll. progress. trivial.
+seq 1 : (mac_k \in mKeygen /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ xss \in paramDistr act_time rounds /\ hashed_xss = map (fun xs => map (fun x => H x) xs) xss). progress. wp. skip. progress.  
+seq 1 : (mac_k \in mKeygen /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ xss \in paramDistr act_time rounds /\ hashed_xss = map (fun xs => map (fun x => H x) xs) xss /\ (pk_e, sk_e) \in endKeygen hashed_xss). rnd. skip. progress. rnd (fun (_ : end_pkey * end_skey) => (pk_e, sk_e) \in endKeygen hashed_xss). skip. progress. 
+rewrite eq1_mu. apply endKeygen_ll. progress. 
+admit.
+trivial.
+admit.
+admit.
+seq 1 : ((mac_k \in mKeygen) /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ (xss \in paramDistr act_time rounds) /\ hashed_xss = map (fun (xs0 : bit_string list) => map (fun (x : bit_string) => H x) xs0) xss /\ ((pk_e, sk_e) \in endKeygen hashed_xss) /\ Q.pk \in accKey). rnd. progress. rnd. skip. progress. rewrite eq1_mu. apply accKey_ll. progress. trivial. 
+
+
+
+
+
+lemma bltl_sign :
+phoare[BLTLScheme(Q(A)).sign : (* sk <- BLTL.keygen *)] = 1%r.
+proof.
+
+
+lemma bltl_verify :
+phoare[BLTLScheme(Q(A)).verify : (* pk <- BLTL.keygen, sig <- BLTL.sign *)] = 1%r.
+proof.
 
