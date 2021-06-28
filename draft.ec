@@ -299,12 +299,10 @@ section.
 (* define adversary *)
 declare module A : AdvQ.
 
-print Distr.
-
 lemma bltl_keygen : forall xs,
 phoare[BLTLScheme(Q(A)).keygen : 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time ==> (res.`2.`1, res.`1.`2) \in endKeygen xs /\ res.`1.`1 \in mKeygen /\ res.`1.`4 = res.`2.`5 /\ res.`1.`4 \in accKey] = 1%r.
 proof. move => xs.
-proc. simplify. wp. progress. inline*. 
+proc. simplify. wp. progress. inline*.
 seq 1 : (mac_k \in mKeygen /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time). rnd. skip. 
 progress. rnd. skip. progress. rewrite H H0 H1. simplify. 
 rewrite eq1_mu. apply mKeygen_ll. progress. trivial.
@@ -318,14 +316,14 @@ seq 1 : (mac_k \in mKeygen /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ xs
 rnd. skip. progress. rnd (fun (pe : end_pkey * end_skey) => (pe.`1, pe.`2) \in endKeygen hashed_xss). skip. progress. 
 rewrite eq1_mu. apply endKeygen_ll. progress. 
 
-have ->: (x.`1, x.`2) = x.  admit. apply H4. auto.
+have ->: (x.`1, x.`2) = x.  admit. apply H4. auto. 
 
+seq 1 : ((mac_k \in mKeygen) /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ (xss \in paramDistr act_time rounds) /\ hashed_xss = map (fun (xs0 : bit_string list) => map (fun (x : bit_string) => H x) xs0) xss /\ ((pk_e, sk_e) \in endKeygen hashed_xss) /\ Q.pk \in accKey). rnd. progress. rnd. skip. progress. rewrite eq1_mu. apply accKey_ll. progress. trivial.
+seq 1 : ((mac_k \in mKeygen) /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ (xss \in paramDistr act_time rounds) /\ hashed_xss = map (fun (xs0 : bit_string list) => map (fun (x : bit_string) => H x) xs0) xss /\ ((pk_e, sk_e) \in endKeygen hashed_xss) /\ Q.pk \in accKey /\ pkQ \in accKey). progress. wp. skip. progress. skip. progress. 
 
-trivial.
-admit.
-admit.
-seq 1 : ((mac_k \in mKeygen) /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ (xss \in paramDistr act_time rounds) /\ hashed_xss = map (fun (xs0 : bit_string list) => map (fun (x : bit_string) => H x) xs0) xss /\ ((pk_e, sk_e) \in endKeygen hashed_xss) /\ Q.pk \in accKey). rnd. progress. rnd. skip. progress. rewrite eq1_mu. apply accKey_ll. progress. trivial. 
+have ->: xs = (map (map Top.H) xss{hr}). admit. apply H4. auto.
 
+progress. 
 
 
 
