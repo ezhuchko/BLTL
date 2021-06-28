@@ -312,9 +312,15 @@ seq 1 : (mac_k \in mKeygen /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ xs
 progress. rnd. skip. progress. rewrite H H0 H1 H2. simplify. 
 rewrite eq1_mu. apply paramDistr_ll. progress. trivial.
 seq 1 : (mac_k \in mKeygen /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ xss \in paramDistr act_time rounds /\ hashed_xss = map (fun xs => map (fun x => H x) xs) xss). progress. wp. skip. progress.  
-seq 1 : (mac_k \in mKeygen /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ xss \in paramDistr act_time rounds /\ hashed_xss = map (fun xs => map (fun x => H x) xs) xss /\ (pk_e, sk_e) \in endKeygen hashed_xss). rnd. skip. progress. rnd (fun (_ : end_pkey * end_skey) => (pk_e, sk_e) \in endKeygen hashed_xss). skip. progress. 
+seq 1 : (mac_k \in mKeygen /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ xss \in paramDistr act_time rounds /\ hashed_xss = map (fun xs => map (fun x => H x) xs) xss /\ (pk_e, sk_e) \in endKeygen hashed_xss). 
+
+
+rnd. skip. progress. rnd (fun (pe : end_pkey * end_skey) => (pe.`1, pe.`2) \in endKeygen hashed_xss). skip. progress. 
 rewrite eq1_mu. apply endKeygen_ll. progress. 
-admit.
+
+have ->: (x.`1, x.`2) = x.  admit. apply H4. auto.
+
+
 trivial.
 admit.
 admit.
