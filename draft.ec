@@ -185,10 +185,6 @@ axiom keygen_r xss i j:
 axiom valid_mac_1 (mm : message_macced) xs k:
   mm \inl xs => macVer k mm.`2 mm.`1 = true.
 
-(*
-axiom hashed_xss_1 xss:
-   forall xs, xs \inl xss =>  . *)
-
 (* BLTL Scheme *)   
 
 type bltl_signature = endorsement * end_msg * Time * Time * int * int * cert * (tag * data) * Proof * mac.
