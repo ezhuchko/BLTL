@@ -308,15 +308,16 @@ lemma bltl_keygen :
 phoare[BLTLScheme(Q(A)).keygen : 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time ==> (res.`2.`1, res.`1.`2) \in endKeygen (hashed_xss (res.`1.`3)) /\ res.`1.`1 \in mKeygen /\ res.`1.`4 = res.`2.`5 /\ res.`1.`4 \in accKey] = 1%r.
 proof. 
 proc. simplify. wp. progress. inline*.
+
 seq 1 : (mac_k \in mKeygen /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time). rnd. skip. 
 progress. rnd. skip. progress. rewrite H H0 H1. simplify. 
 rewrite eq1_mu. apply mKeygen_ll. progress. trivial.
+
 seq 1 : (mac_k \in mKeygen /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ xss \in paramDistr act_time rounds). rnd. skip.
 progress. rnd. skip. progress. rewrite H H0 H1 H2. simplify. 
 rewrite eq1_mu. apply paramDistr_ll. progress. trivial.
  
 seq 1 : (mac_k \in mKeygen /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ xss \in paramDistr act_time rounds /\ (pk_e, sk_e) \in endKeygen (hashed_xss xss)). 
-
 
 rnd. skip. progress. rnd (fun (pe : end_pkey * end_skey) => (pe.`1, pe.`2) \in endKeygen (hashed_xss xss)). skip. progress. 
 rewrite eq1_mu. apply endKeygen_ll. progress. 
