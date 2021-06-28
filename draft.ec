@@ -333,10 +333,11 @@ wp. skip. progress.
 
 
 lemma bltl_sign :
-phoare[BLTLScheme(Q(A)).sign : (* sk <- BLTL.keygen *)] = 1%r.
+phoare[BLTLScheme(Q(A)).sign : (* sk <- BLTL.keygen *) ==> res.`1 \in endGen sk.`2 (hashed_xss (sk.`3)) res.`3 /\ res.`2 = nth witness sk.`3 res.`3 /\ res.`8 = digestQ sk.`4 (head witness res.`2, Q.st) /\ res.`9 = proofQ sk.`4 (head witness res.`2, Q.st) (H m, res.`10)] = 1%r.
 proof.
 
 
 lemma bltl_verify :
 phoare[BLTLScheme(Q(A)).verify : (* pk <- BLTL.keygen, sig <- BLTL.sign *)] = 1%r.
 proof.
+
