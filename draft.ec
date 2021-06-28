@@ -175,7 +175,8 @@ type bit_string = int.
 op paramDistr : int -> int -> (int list) list distr.
 op H : bit_string -> bit_string. 
 op valid_mac : message_macced list -> macKey -> bool.
-
+op hashed_xss : end_msg list -> end_msg list. (* pk list M *) 
+ 
 axiom paramDistr_ll i j: is_lossless (paramDistr i j).
 
 axiom keygen_r xss i j:
@@ -183,6 +184,10 @@ axiom keygen_r xss i j:
 
 axiom valid_mac_1 (mm : message_macced) xs k:
   mm \inl xs => macVer k mm.`2 mm.`1 = true.
+
+(*
+axiom hashed_xss_1 xss:
+   forall xs, xs \inl xss =>  . *)
 
 (* BLTL Scheme *)   
 
@@ -194,7 +199,7 @@ type bltl_pk = end_pkey * int * int * int * acc_pkey.
 module BLTLScheme(Q : Qt) = {
    
   proc keygen(act_time : int, rounds : int, max_lag : int) : bltl_sk * bltl_pk = {  
-    var xss, hashed_xss : end_msg list;
+    var xss: end_msg list;
     var mac_k : macKey;
     var pkQ : acc_pkey;
     var pk_e : end_pkey;
@@ -202,8 +207,7 @@ module BLTLScheme(Q : Qt) = {
         
     mac_k <$ mKeygen;
     xss <$ paramDistr act_time rounds;  (* sk list r *)
-    hashed_xss <- map(fun xs => map (fun x => H x) xs) xss; (* pk list M *) 
-    (pk_e, sk_e) <$ endKeygen(hashed_xss);
+    (pk_e, sk_e) <$ endKeygen(hashed_xss xss);
     pkQ <- Q.init();
     
     return ((mac_k, sk_e, xss, pkQ, act_time, rounds, max_lag), (pk_e, act_time, rounds, max_lag, pkQ)); 
@@ -226,7 +230,7 @@ module BLTLScheme(Q : Qt) = {
     t <- P.clock();
     if(sk.`5 <= t < sk.`5 + sk.`6){ (* C <= t < C + E *)
       i <- t - sk.`5; (* i = t - C *)
-      e <- endGen sk.`2 (map (fun xs => map (fun x => H x) xs) (sk.`3)) i; 
+      e <- endGen sk.`2 (hashed_xss (sk.`3)) i; 
       mm <- (H m, macGen sk.`1 (H m)); 
       r_i <- nth witness sk.`3 i; 
      
@@ -299,9 +303,10 @@ section.
 (* define adversary *)
 declare module A : AdvQ.
 
-lemma bltl_keygen : forall xs,
-phoare[BLTLScheme(Q(A)).keygen : 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time ==> (res.`2.`1, res.`1.`2) \in endKeygen xs /\ res.`1.`1 \in mKeygen /\ res.`1.`4 = res.`2.`5 /\ res.`1.`4 \in accKey] = 1%r.
-proof. move => xs.
+
+lemma bltl_keygen : 
+phoare[BLTLScheme(Q(A)).keygen : 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time ==> (res.`2.`1, res.`1.`2) \in endKeygen (hashed_xss (res.`1.`3)) /\ res.`1.`1 \in mKeygen /\ res.`1.`4 = res.`2.`5 /\ res.`1.`4 \in accKey] = 1%r.
+proof. 
 proc. simplify. wp. progress. inline*.
 seq 1 : (mac_k \in mKeygen /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time). rnd. skip. 
 progress. rnd. skip. progress. rewrite H H0 H1. simplify. 
@@ -309,23 +314,20 @@ rewrite eq1_mu. apply mKeygen_ll. progress. trivial.
 seq 1 : (mac_k \in mKeygen /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ xss \in paramDistr act_time rounds). rnd. skip.
 progress. rnd. skip. progress. rewrite H H0 H1 H2. simplify. 
 rewrite eq1_mu. apply paramDistr_ll. progress. trivial.
-seq 1 : (mac_k \in mKeygen /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ xss \in paramDistr act_time rounds /\ hashed_xss = map (fun xs => map (fun x => H x) xs) xss). progress. wp. skip. progress.  
-seq 1 : (mac_k \in mKeygen /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ xss \in paramDistr act_time rounds /\ hashed_xss = map (fun xs => map (fun x => H x) xs) xss /\ (pk_e, sk_e) \in endKeygen hashed_xss). 
+ 
+seq 1 : (mac_k \in mKeygen /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ xss \in paramDistr act_time rounds /\ (pk_e, sk_e) \in endKeygen (hashed_xss xss)). 
 
 
-rnd. skip. progress. rnd (fun (pe : end_pkey * end_skey) => (pe.`1, pe.`2) \in endKeygen hashed_xss). skip. progress. 
+rnd. skip. progress. rnd (fun (pe : end_pkey * end_skey) => (pe.`1, pe.`2) \in endKeygen (hashed_xss xss)). skip. progress. 
 rewrite eq1_mu. apply endKeygen_ll. progress. 
 
 have ->: (x.`1, x.`2) = x.  admit. apply H4. auto. 
 
-seq 1 : ((mac_k \in mKeygen) /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ (xss \in paramDistr act_time rounds) /\ hashed_xss = map (fun (xs0 : bit_string list) => map (fun (x : bit_string) => H x) xs0) xss /\ ((pk_e, sk_e) \in endKeygen hashed_xss) /\ Q.pk \in accKey). rnd. progress. rnd. skip. progress. rewrite eq1_mu. apply accKey_ll. progress. trivial.
+seq 1 : ((mac_k \in mKeygen) /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ (xss \in paramDistr act_time rounds) /\ ((pk_e, sk_e) \in endKeygen (hashed_xss xss)) /\ Q.pk \in accKey). rnd. progress. rnd. skip. progress. rewrite eq1_mu. apply accKey_ll. progress. trivial.
 
-seq 1 : ((mac_k \in mKeygen) /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ (xss \in paramDistr act_time rounds) /\ hashed_xss = map (fun (xs0 : bit_string list) => map (fun (x : bit_string) => H x) xs0) xss /\ ((pk_e, sk_e) \in endKeygen hashed_xss) /\ Q.pk \in accKey /\ pkQ = Q.pk). progress. wp. skip. progress. skip. progress. 
+seq 1 : ((mac_k \in mKeygen) /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ (xss \in paramDistr act_time rounds) /\ ((pk_e, sk_e) \in endKeygen (hashed_xss xss)) /\ Q.pk \in accKey /\ pkQ = Q.pk). progress. wp. skip. progress. skip. progress. 
 
-have ->: xs = (map (map Top.H) xss{hr}). admit. apply H4. auto.
-
-progress. 
-
+trivial. wp. skip. progress. 
 
 
 
@@ -337,4 +339,3 @@ proof.
 lemma bltl_verify :
 phoare[BLTLScheme(Q(A)).verify : (* pk <- BLTL.keygen, sig <- BLTL.sign *)] = 1%r.
 proof.
-
