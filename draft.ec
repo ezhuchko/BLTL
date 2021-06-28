@@ -328,7 +328,7 @@ seq 1 : ((mac_k \in mKeygen) /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ 
 
 seq 1 : ((mac_k \in mKeygen) /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ (xss \in paramDistr act_time rounds) /\ ((pk_e, sk_e) \in endKeygen (hashed_xss xss)) /\ Q.pk \in accKey /\ pkQ = Q.pk). progress. wp. skip. progress. skip. progress. 
 
-trivial. wp. skip. progress. 
+wp. skip. progress. 
 
 
 
