@@ -337,26 +337,25 @@ hoare. rnd. skip. progress. trivial.
 hoare. rnd. skip. progress. trivial.
 qed.
 
-
+ 
 lemma bltl_sign : forall sk m, 
-phoare[BLTLScheme(Q(A)).sign : arg = (sk, m) ==> 
-res.`1 = endGen sk.`2 (hashed_xss (sk.`3)) i /\ 
+phoare[BLTLScheme(Q(A)).sign : arg = (sk, m) ==>
+res.`3 = P.t - sk.`5 /\  
+res.`1 = endGen sk.`2 (hashed_xss (sk.`3)) res.`3 /\ 
 res.`2 = nth witness sk.`3 res.`3 /\ 
-res.`3 = i  /\ 
-res.`4 = t /\
+res.`4 = (P.t + sk.`7) - P.t /\
 res.`5 = head witness res.`2 /\ 
 res.`6 = nth witness res.`2 res.`4 /\
-(*res.`7 = c /\ *)
-(*res.`8 = digestQ sk.`4 (head witness res.`2, st) /\ 
-res.`9 = proofQ sk.`4 (head witness res.`2, st) (H m, res.`10) /\
-*)
+verifyTs (oget dg) res.`7 (digestQ sk.`4 (head witness sk.`2, st)) = true /\
 res.`10 = macGen sk.`1 (H m)] = 1%r.
 proof. move => ??.
 proc. simplify. inline*. 
 
 
 
-lemma bltl_verify :
-phoare[BLTLScheme(Q(A)).verify : (* pk <- BLTL.keygen, sig <- BLTL.sign *)] = 1%r.
+lemma bltl_verify : forall pk sig m,
+phoare[BLTLScheme(Q(A)).verify : arg = (pk, sig, m) ==>
+
+] = 1%r.
 proof.
 
