@@ -300,7 +300,11 @@ section.
 declare module A : AdvQ.
 
 lemma bltl_keygen : 
-phoare[BLTLScheme(Q(A)).keygen : 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time ==> (res.`2.`1, res.`1.`2) \in endKeygen (hashed_xss (res.`1.`3)) /\ res.`1.`1 \in mKeygen /\ res.`1.`4 = res.`2.`5 /\ res.`1.`4 \in accKey] = 1%r.
+phoare[BLTLScheme(Q(A)).keygen : 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time ==> 
+(res.`2.`1, res.`1.`2) \in endKeygen (hashed_xss (res.`1.`3)) /\
+res.`1.`1 \in mKeygen /\ 
+res.`1.`4 = res.`2.`5 /\ 
+res.`1.`4 \in accKey] = 1%r.
 proof. 
 proc. simplify. inline*.
 
@@ -341,12 +345,12 @@ res.`2 = nth witness sk.`3 res.`3 /\
 res.`3 = sk.`6  /\ 
 res.`4 = sk.`7 /\
 res.`5 = head witness res.`2 /\ 
-res.`6 = nth witness res.`2 res.`4 
+res.`6 = nth witness res.`2 res.`4 /\
 (*res.`7 = c /\ *)
 (*res.`8 = digestQ sk.`4 (head witness res.`2, st) /\ 
 res.`9 = proofQ sk.`4 (head witness res.`2, st) (H m, res.`10) /\
-res.`10 = *)
-] = 1%r.
+*)
+res.`10 = macGen sk.`1 (H m)] = 1%r.
 proof. move => ??.
 proc. simplify. inline*. 
 
@@ -355,6 +359,4 @@ proc. simplify. inline*.
 lemma bltl_verify :
 phoare[BLTLScheme(Q(A)).verify : (* pk <- BLTL.keygen, sig <- BLTL.sign *)] = 1%r.
 proof.
-
-
 
