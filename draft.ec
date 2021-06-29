@@ -338,24 +338,34 @@ hoare. rnd. skip. progress. trivial.
 qed.
 
  
+
 lemma bltl_sign : forall sk m, 
-phoare[BLTLScheme(Q(A)).sign : arg = (sk, m) ==>
+phoare[BLTLScheme(Q(A)).sign : 
+arg = (sk, m) /\
+0 <= P.t /\
+sk.`5 <= P.t < sk.`5 + sk.`6 ==>
 res.`3 = P.t - sk.`5 /\  
 res.`1 = endGen sk.`2 (hashed_xss (sk.`3)) res.`3 /\ 
 res.`2 = nth witness sk.`3 res.`3 /\ 
-res.`4 = (P.t + sk.`7) - P.t /\
 res.`5 = head witness res.`2 /\ 
 res.`6 = nth witness res.`2 res.`4 /\
-verifyTs (oget dg) res.`7 (digestQ sk.`4 (head witness sk.`2, st)) = true /\
-res.`10 = macGen sk.`1 (H m)] = 1%r.
+res.`10 = macGen sk.`1 (H m) /\
+verifyTs (oget P.m.[res.`4 + P.t]) res.`7 res.`8 = true] = 1%r.
 proof. move => ??.
-proc. simplify. inline*. 
-
+proc. simplify. inline*. admit. qed.
 
 
 lemma bltl_verify : forall pk sig m,
-phoare[BLTLScheme(Q(A)).verify : arg = (pk, sig, m) ==>
+phoare[BLTLScheme(Q(A)).verify : 
+arg = (pk, sig, m) /\
+sig.`3 = P.t - pk.`2 /\  
+sig.`5 = head witness sig.`2 /\ 
+sig.`6 = nth witness sig.`2 sig.`4 /\
+verifyTs (oget P.m.[sig.`4 + P.t]) sig.`7 sig.`8 = true  ==>
+endVer pk.`1 sig.`1 sig.`2 sig.`3 = true /\
+verifyTs (oget P.m.[sig.`4 + P.t]) sig.`7 sig.`8 = true /\
+verifyQ pk.`5 sig.`8 sig.`9 (H m, sig.`10) = true] = 1%r.
+proof. move => ???.
+proc. simplify. inline*.
 
-] = 1%r.
-proof.
 
