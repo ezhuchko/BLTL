@@ -299,15 +299,13 @@ section.
 (* define adversary *)
 declare module A : AdvQ.
 
-(*
 lemma bltl_keygen : 
 phoare[BLTLScheme(Q(A)).keygen : 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time ==> (res.`2.`1, res.`1.`2) \in endKeygen (hashed_xss (res.`1.`3)) /\ res.`1.`1 \in mKeygen /\ res.`1.`4 = res.`2.`5 /\ res.`1.`4 \in accKey] = 1%r.
 proof. 
-proc. simplify. wp. progress. inline*.
+proc. simplify. inline*.
 
-seq 1 : (mac_k \in mKeygen /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time). rnd. skip. 
-progress. rnd. skip. progress. rewrite H H0 H1. simplify. 
-rewrite eq1_mu. apply mKeygen_ll. progress. trivial.
+seq 1 : (mac_k \in mKeygen /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time). rnd. skip. progress. 
+rnd. skip. progress. rewrite H H0 H1. simplify. rewrite eq1_mu. apply mKeygen_ll. progress. trivial. 
 
 seq 1 : (mac_k \in mKeygen /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ xss \in paramDistr act_time rounds). rnd. skip.
 progress. rnd. skip. progress. rewrite H H0 H1 H2. simplify. 
@@ -322,20 +320,41 @@ have ->: (x.`1, x.`2) = x.  admit. apply H4. auto.
 
 seq 1 : ((mac_k \in mKeygen) /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ (xss \in paramDistr act_time rounds) /\ ((pk_e, sk_e) \in endKeygen (hashed_xss xss)) /\ Q.pk \in accKey). rnd. progress. rnd. skip. progress. rewrite eq1_mu. apply accKey_ll. progress. trivial.
 
-seq 1 : ((mac_k \in mKeygen) /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ (xss \in paramDistr act_time rounds) /\ ((pk_e, sk_e) \in endKeygen (hashed_xss xss)) /\ Q.pk \in accKey /\ pkQ = Q.pk). progress. wp. skip. progress. skip. progress. 
+seq 1 : ((mac_k \in mKeygen) /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ (xss \in paramDistr act_time rounds) /\ ((pk_e, sk_e) \in endKeygen (hashed_xss xss)) /\ Q.pk \in accKey /\ pkQ = Q.pk).
+progress. wp. skip. progress. skip. progress. 
 
-wp. skip. progress. 
-*)
+hoare. wp. skip. progress. trivial. 
+hoare. rnd. skip. progress. trivial. 
+hoare. rnd. skip. progress. 
+
+have ->: (pk_esk_e.`1, pk_esk_e.`2) = pk_esk_e. admit. apply H4. auto.
+
+hoare. rnd. skip. progress. trivial.
+hoare. rnd. skip. progress. trivial.
+qed.
 
 
 lemma bltl_sign : forall sk m, 
-phoare[BLTLScheme(Q(A)).sign : arg = (sk, m) ==> res.`1 = endGen sk.`2 (hashed_xss (sk.`3)) res.`3 /\ res.`2 = nth witness sk.`3 res.`3 /\ res.`3 = P.t - sk.`5 /\ res.`4 = [t'] - P.t (* res.`8 = digestQ sk.`4 (head witness res.`2, Q.st) /\ res.`9 = proofQ sk.`4 (head witness res.`2, Q.st) (H m, res.`10) *)] = 1%r.
+phoare[BLTLScheme(Q(A)).sign : arg = (sk, m) ==> 
+res.`1 = endGen sk.`2 (hashed_xss (sk.`3)) res.`3 /\ 
+res.`2 = nth witness sk.`3 res.`3 /\ 
+res.`3 = sk.`6  /\ 
+res.`4 = sk.`7 /\
+res.`5 = head witness res.`2 /\ 
+res.`6 = nth witness res.`2 res.`4 
+(*res.`7 = c /\ *)
+(*res.`8 = digestQ sk.`4 (head witness res.`2, st) /\ 
+res.`9 = proofQ sk.`4 (head witness res.`2, st) (H m, res.`10) /\
+res.`10 = *)
+] = 1%r.
 proof. move => ??.
-proc. simplify. 
+proc. simplify. inline*. 
 
 
 
 lemma bltl_verify :
 phoare[BLTLScheme(Q(A)).verify : (* pk <- BLTL.keygen, sig <- BLTL.sign *)] = 1%r.
 proof.
+
+
 
