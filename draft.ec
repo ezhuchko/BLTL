@@ -363,4 +363,20 @@ proc. simplify. inline*. admit. qed.
 lemma bltl_correct :
 phoare[BLTLCorrect(A).main : true ==> res] = 1%r.
 proof. 
-proc. inline BLTLCorrect(A).BLTL.keygen. 
+proc. seq 1 : ((sk.`1 \in mKeygen) /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ (sk.`3 \in paramDistr act_time rounds) /\ ((pk.`1, sk.`2) \in endKeygen (hashed_xss sk.`3)) /\ Q.pk \in accKey /\ sk.`4 = pk.`5). trivial. 
+
+
+
+(*
+lemma bltl_verify : forall pk sig m,
+phoare[BLTLScheme(Q(A)).verify : 
+arg = (pk, sig, m) /\
+sig.`3 = P.t - pk.`2 /\  
+sig.`5 = head witness sig.`2 /\ 
+sig.`6 = nth witness sig.`2 sig.`4 ==>
+endVer pk.`1 sig.`1 sig.`2 sig.`3 /\
+verifyTs (oget P.m.[sig.`4 + P.t]) sig.`7 sig.`8 /\
+verifyQ pk.`5 sig.`8 sig.`9 (H m, sig.`10)] = 1%r.
+proof. move => ???.
+proc. simplify. inline*.
+*)
