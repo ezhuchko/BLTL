@@ -340,10 +340,10 @@ qed.
 
 lemma bltl_sign : forall sk m, 
 phoare[BLTLScheme(Q(A)).sign : arg = (sk, m) ==> 
-res.`1 = endGen sk.`2 (hashed_xss (sk.`3)) res.`3 /\ 
+res.`1 = endGen sk.`2 (hashed_xss (sk.`3)) i /\ 
 res.`2 = nth witness sk.`3 res.`3 /\ 
-res.`3 = sk.`6  /\ 
-res.`4 = sk.`7 /\
+res.`3 = i  /\ 
+res.`4 = t /\
 res.`5 = head witness res.`2 /\ 
 res.`6 = nth witness res.`2 res.`4 /\
 (*res.`7 = c /\ *)
