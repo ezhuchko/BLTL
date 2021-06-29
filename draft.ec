@@ -258,6 +258,8 @@ module BLTLScheme(Q : Qt) = {
     valid_e <- endVer pk.`1 sig.`1 sig.`2 sig.`3;
     v' <- verifyQ pk.`5 sig.`8 sig.`9 (H m, sig.`10); (* V(q,z,h(m)||p) *)
 
+    (* ====== *)
+
     if(0 < sig.`4 <= pk.`3){  (* 0 < l <= L*)
       t <- pk.`2 + sig.`3;   (* t = C + i *)
       t' <- t + sig.`4;        (* t' = t + l *)
@@ -289,7 +291,7 @@ module BLTLCorrect(A : AdvQ) = {
     (* property about sk and pk: P (sk , pk) *)
 
     sig <@ BLTL.sign(sk, m);
-==== (sk,pk) + sig
+    (* ==== (sk,pk) + sig ===== *)
     b <@ BLTL.verify(pk, sig, m);
 
     return b;
@@ -353,21 +355,12 @@ res.`2 = nth witness sk.`3 res.`3 /\
 res.`5 = head witness res.`2 /\ 
 res.`6 = nth witness res.`2 res.`4 /\
 res.`10 = macGen sk.`1 (H m) /\
-verifyTs (oget P.m.[res.`4 + P.t]) res.`7 res.`8  ] = 1%r.
+verifyTs (oget P.m.[res.`4 + P.t]) res.`7 res.`8] = 1%r.
 proof. move => ??.
 proc. simplify. inline*. admit. qed.
 
 
-lemma bltl_verify : forall pk sig m,
-phoare[BLTLScheme(Q(A)).verify : 
-arg = (pk, sig, m) /\
-sig.`3 = P.t - pk.`2 /\  
-sig.`5 = head witness sig.`2 /\ 
-sig.`6 = nth witness sig.`2 sig.`4 ==>
-endVer pk.`1 sig.`1 sig.`2 sig.`3 = true /\
-verifyTs (oget P.m.[sig.`4 + P.t]) sig.`7 sig.`8 = true /\
-verifyQ pk.`5 sig.`8 sig.`9 (H m, sig.`10) = true] = 1%r.
-proof. move => ???.
-proc. simplify. inline*.
-
-
+lemma bltl_correct :
+phoare[BLTLCorrect(A).main : true ==> res] = 1%r.
+proof. 
+proc. inline BLTLCorrect(A).BLTL.keygen. 
