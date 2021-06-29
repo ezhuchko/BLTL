@@ -360,8 +360,7 @@ phoare[BLTLScheme(Q(A)).verify :
 arg = (pk, sig, m) /\
 sig.`3 = P.t - pk.`2 /\  
 sig.`5 = head witness sig.`2 /\ 
-sig.`6 = nth witness sig.`2 sig.`4 /\
-verifyTs (oget P.m.[sig.`4 + P.t]) sig.`7 sig.`8 = true  ==>
+sig.`6 = nth witness sig.`2 sig.`4 ==>
 endVer pk.`1 sig.`1 sig.`2 sig.`3 = true /\
 verifyTs (oget P.m.[sig.`4 + P.t]) sig.`7 sig.`8 = true /\
 verifyQ pk.`5 sig.`8 sig.`9 (H m, sig.`10) = true] = 1%r.
