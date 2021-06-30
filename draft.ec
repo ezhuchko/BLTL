@@ -372,7 +372,7 @@ act_time <= P.t < act_time + rounds ==> res] = 1%r.
 proof. 
 move => ????. 
 proc. 
-seq 1 : (sk.`1 \in mKeygen /\ 
+seq 1 : (0 <= P.t /\ 0 <= act_time /\ 0 <= rounds /\ 0 <= max_lag /\ act_time <= P.t < act_time + rounds /\ sk.`1 \in mKeygen /\ 
 sk.`3 \in paramDistr sk.`5 sk.`6 /\ 
 (pk.`1, sk.`2) \in endKeygen (hashed_xss sk.`3) /\ 
 sk.`4 = pk.`5 /\
@@ -384,7 +384,23 @@ sig.`2 = nth witness sk.`3 sig.`3 /\
 sig.`5 = head witness sig.`2 /\ 
 sig.`6 = nth witness sig.`2 sig.`4 /\
 sig.`10 = macGen sk.`1 (H m) /\
-verifyTs (oget P.m.[sig.`4 + P.t]) sig.`7 sig.`8). trivial. call bltl_sign.
+verifyTs (oget P.m.[sig.`4 + P.t]) sig.`7 sig.`8). trivial. 
+
+conseq (_: exists msk mm, (msk, mm) = (sk,m) /\ 0 <= sk.`5 /\ 
+0 <= sk.`6 /\ 0 <= sk.`7 /\ 0 <= P.t /\ sk.`5 <= P.t < sk.`5 +  sk.`6 /\ (sk.`1 \in mKeygen) /\
+  (sk.`3 \in paramDistr sk.`5 sk.`6) /\
+  ((pk.`1, sk.`2) \in endKeygen (hashed_xss sk.`3)) /\ sk.`4 = pk.`5 /\ (sk.`4 \in accKey)
+ ==> _). progress. admit.
+
+elim*. move => msk mm.
+
+call (bltl_sign msk mm ). skip. progress. 
+
+seq 1 : (endVer pk.`1 sig.`1 sig.`2 sig.`3 /\
+verifyTs (oget P.m.[sig.`4 + P.t]) sig.`7 sig.`8 /\
+verifyQ pk.`5 sig.`8 sig.`9 (H m, sig.`10)). trivial. inline*.
+
+
 
 
 
