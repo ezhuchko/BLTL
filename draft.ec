@@ -363,7 +363,12 @@ proc. simplify. inline*. admit. qed.
 
 lemma bltl_correct : forall m act_time rounds max_lag,
 phoare[BLTLCorrect(A).main : 
-arg = (m, act_time, rounds, max_lag) /\ 0 <= act_time /\ 0 <= rounds /\ 0 <= max_lag ==> res] = 1%r.
+arg = (m, act_time, rounds, max_lag) /\ 
+0 <= act_time /\ 
+0 <= rounds /\ 
+0 <= max_lag /\
+0 <= P.t /\
+act_time <= P.t < act_time + rounds ==> res] = 1%r.
 proof. 
 move => ????. 
 proc. 
