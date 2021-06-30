@@ -309,7 +309,8 @@ phoare[BLTLScheme(Q(A)).keygen : 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time ==
 (res.`2.`1, res.`1.`2) \in endKeygen (hashed_xss (res.`1.`3)) /\
 res.`1.`1 \in mKeygen /\ 
 res.`1.`4 = res.`2.`5 /\ 
-res.`1.`4 \in accKey] = 1%r.
+res.`1.`4 \in accKey /\ 
+res.`1.`3 \in paramDistr res.`1.`5 res.`1.`6] = 1%r.
 proof. 
 proc. simplify. inline*.
 
@@ -327,9 +328,9 @@ rewrite eq1_mu. apply endKeygen_ll. progress.
 
 have ->: (x.`1, x.`2) = x.  admit. apply H4. auto. 
 
-seq 1 : ((mac_k \in mKeygen) /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ (xss \in paramDistr act_time rounds) /\ ((pk_e, sk_e) \in endKeygen (hashed_xss xss)) /\ Q.pk \in accKey). rnd. progress. rnd. skip. progress. rewrite eq1_mu. apply accKey_ll. progress. trivial.
+seq 1 : (mac_k \in mKeygen /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ xss \in paramDistr act_time rounds /\ (pk_e, sk_e) \in endKeygen (hashed_xss xss) /\ Q.pk \in accKey). rnd. progress. rnd. skip. progress. rewrite eq1_mu. apply accKey_ll. progress. trivial.
 
-seq 1 : ((mac_k \in mKeygen) /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ (xss \in paramDistr act_time rounds) /\ ((pk_e, sk_e) \in endKeygen (hashed_xss xss)) /\ Q.pk \in accKey /\ pkQ = Q.pk).
+seq 1 : (mac_k \in mKeygen /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ xss \in paramDistr act_time rounds /\ (pk_e, sk_e) \in endKeygen (hashed_xss xss) /\ Q.pk \in accKey /\ pkQ = Q.pk).
 progress. wp. skip. progress. skip. progress. 
 
 hoare. wp. skip. progress. trivial. 
@@ -360,10 +361,25 @@ proof. move => ??.
 proc. simplify. inline*. admit. qed.
 
 
-lemma bltl_correct :
-phoare[BLTLCorrect(A).main : true ==> res] = 1%r.
+lemma bltl_correct : forall m act_time rounds max_lag,
+phoare[BLTLCorrect(A).main : 
+arg = (m, act_time, rounds, max_lag) /\ 0 <= act_time /\ 0 <= rounds /\ 0 <= max_lag ==> res] = 1%r.
 proof. 
-proc. seq 1 : ((sk.`1 \in mKeygen) /\ 0 <= rounds /\ 0 <= max_lag /\ 0 <= act_time /\ (sk.`3 \in paramDistr act_time rounds) /\ ((pk.`1, sk.`2) \in endKeygen (hashed_xss sk.`3)) /\ Q.pk \in accKey /\ sk.`4 = pk.`5). trivial. 
+move => ????. 
+proc. 
+seq 1 : (sk.`1 \in mKeygen /\ 
+sk.`3 \in paramDistr sk.`5 sk.`6 /\ 
+(pk.`1, sk.`2) \in endKeygen (hashed_xss sk.`3) /\ 
+sk.`4 = pk.`5 /\
+sk.`4 \in accKey). trivial. call bltl_keygen. skip. progress. 
+
+seq 1 : (sig.`3 = P.t - sk.`5 /\  
+sig.`1 = endGen sk.`2 (hashed_xss (sk.`3)) sig.`3 /\ 
+sig.`2 = nth witness sk.`3 sig.`3 /\ 
+sig.`5 = head witness sig.`2 /\ 
+sig.`6 = nth witness sig.`2 sig.`4 /\
+sig.`10 = macGen sk.`1 (H m) /\
+verifyTs (oget P.m.[sig.`4 + P.t]) sig.`7 sig.`8). trivial. call bltl_sign.
 
 
 
