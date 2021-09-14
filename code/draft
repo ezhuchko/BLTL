@@ -1,6 +1,4 @@
-
-require import AllCore List Int Bool Distr SmtMap DInterval.
-
+require import AllCore List Int Bool Distr SmtMap DInterval. 
 
 (* MAC *)
 
@@ -305,7 +303,7 @@ module BLTLCorrect(A : AdvQ) = {
 section.
 
 (* define adversary *)
-declare module A : AdvQ.
+declare module A : AdvQ {P, Q}.
 axiom A_ll : islossless A.askForMore.
 
 lemma bltl_keygen : 
@@ -364,14 +362,14 @@ res.`5 = head witness res.`2 /\
 res.`6 = nth witness res.`2 res.`4 /\
 res.`10 = macGen sk.`1 (H m) /\
 verifyTs (oget P.m.[res.`4 + P.t]) res.`7 res.`8] = 1%r.
-proof. 
+proof.  
 move => ??.
 proc. simplify. inline*. 
+
 seq 1 : (0 <= P.t /\ sk.`5 <= P.t && P.t < sk.`5 + sk.`6 /\
 t = P.t). progress. wp. skip. progress. 
 
 if. 
-
 seq 6 : (0 <= P.t /\ sk.`5 <= P.t && P.t < sk.`5 + sk.`6 /\
 t = P.t /\ 
 i = t - sk.`5 /\                                                                                          
@@ -379,7 +377,7 @@ e = endGen sk.`2 (hashed_xss sk.`3) i /\
 mm = (H m, macGen sk.`1 (H m)) /\                                                                         
 r_i = nth witness sk.`3 i /\                                                                              
 t0 = head witness r_i /\                                                                                 
-m0 = mm). progress. wp. skip. progress. (* abstract function askForMore *)
+m0 = mm). progress. wp. skip. progress. 
 
 seq 12 : (0 <= P.t /\ sk.`5 <= P.t && P.t < sk.`5 + sk.`6 /\
 t = P.t /\ i = t - sk.`5 /\                                                                                          
@@ -399,7 +397,9 @@ t'1 = t'0 /\
 dg0 = digestTs ql /\                                                                                     
 t'2 = t'1 /\                                                                                             
 d = dg0).
-progress. wp. admit. 
+progress. wp. 
+
+call(_ : true). rewrite A_ll. skip. progress. 
 
 if. 
 seq 6 : (0 <= P.t /\ sk.`5 <= P.t && P.t < sk.`5 + sk.`6 /\
@@ -419,7 +419,13 @@ ql = digested_r /\
 t'1 = t'0 /\                                                                                             
 dg0 = digestTs ql /\                                                                                     
 t'2 = t'1 /\                                                                                             
-d = dg0).
+d = dg0 /\
+P.t = t'2 /\
+P.m = P.m.[P.t <- d] /\
+t2 = P.t /\
+cs0 = certTs ql /\
+(tp, cs) = (t2, cs0) /\
+(t', c, st) = (tp, certByTag t0 cs, getByTag t0 final_r)).
 progress. wp. skip. progress. 
 
 
